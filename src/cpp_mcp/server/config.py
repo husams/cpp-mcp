@@ -9,12 +9,16 @@ Optional (with defaults):
   CPP_MCP_CACHE_CAPACITY  — positive integer. Default: 128.
   CPP_MCP_AST_MAX_NODES   — positive integer. Default: 5000.
   CPP_MCP_AST_MAX_BYTES   — positive integer. Default: 1048576 (1 MiB).
+  CPP_MCP_TRANSPORT       — "stdio" or "http". Default: "stdio".
+  CPP_MCP_HTTP_BIND       — bind address for HTTP transport. Default: "127.0.0.1".
+  CPP_MCP_HTTP_PORT       — TCP port for HTTP transport. Default: 8000.
 
 Raises ConfigError (a subclass of Exception) if validation fails.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import shlex
 from dataclasses import dataclass
@@ -25,6 +29,12 @@ _DEFAULT_FLAGS = "-std=c++20 -I. -x c++"
 _DEFAULT_CACHE_CAPACITY = 128
 _DEFAULT_AST_MAX_NODES = 5000
 _DEFAULT_AST_MAX_BYTES = 1_048_576
+_DEFAULT_TRANSPORT = "stdio"
+_DEFAULT_HTTP_BIND = "127.0.0.1"
+_DEFAULT_HTTP_PORT = 8000
+_LOOPBACK_ADDRESSES = {"127.0.0.1", "::1", "localhost"}
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -36,6 +46,9 @@ class ServerConfig:
     cache_capacity: int
     ast_max_nodes: int
     ast_max_bytes: int
+    transport: str
+    http_bind: str
+    http_port: int
 
 
 def _parse_positive_int(value: str, var_name: str) -> int:
@@ -103,10 +116,42 @@ def load_config(env: dict[str, str] | None = None) -> ServerConfig:
     raw_bytes = source.get("CPP_MCP_AST_MAX_BYTES", str(_DEFAULT_AST_MAX_BYTES))
     ast_max_bytes = _parse_positive_int(raw_bytes, "CPP_MCP_AST_MAX_BYTES")
 
+    # --- CPP_MCP_TRANSPORT (optional) ---
+    transport = source.get("CPP_MCP_TRANSPORT", _DEFAULT_TRANSPORT).strip().lower()
+    if transport not in {"stdio", "http"}:
+        raise ConfigError(
+            f"CONFIG_ERROR: CPP_MCP_TRANSPORT must be 'stdio' or 'http', got {transport!r}"
+        )
+
+    # --- CPP_MCP_HTTP_BIND (optional) ---
+    http_bind = source.get("CPP_MCP_HTTP_BIND", _DEFAULT_HTTP_BIND).strip()
+
+    # --- CPP_MCP_HTTP_PORT (optional) ---
+    raw_port = source.get("CPP_MCP_HTTP_PORT", str(_DEFAULT_HTTP_PORT))
+    http_port = _parse_positive_int(raw_port, "CPP_MCP_HTTP_PORT")
+
     return ServerConfig(
         allowed_roots=tuple(roots),
         default_flags=default_flags,
         cache_capacity=cache_capacity,
         ast_max_nodes=ast_max_nodes,
         ast_max_bytes=ast_max_bytes,
+        transport=transport,
+        http_bind=http_bind,
+        http_port=http_port,
     )
+
+
+def _warn_if_non_loopback(bind: str) -> None:
+    """Emit a WARNING log line on stderr if *bind* is not a loopback address.
+
+    Loopback addresses: "127.0.0.1", "::1", "localhost".
+    Anything else (including "0.0.0.0" and "::") triggers the warning.
+    (US-M2/AC-3, EC-2, design §4.5)
+    """
+    if bind not in _LOOPBACK_ADDRESSES:
+        msg = (
+            f"HTTP transport bound to non-loopback address {bind!r}; "
+            "do not expose to untrusted networks — no authentication is configured"
+        )
+        logger.warning(msg)

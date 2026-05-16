@@ -79,3 +79,19 @@ Feature: cpp_export_to_graphdb — Export AST and symbol relationships to graph 
     Given a valid C++ source file "main.cpp" exists in the allowed root
     When cpp_export_to_graphdb is called with an empty db_uri
     Then the response code is "INVALID_ARGUMENT"
+
+  @SC_US_G3_4a
+  Scenario: INVALID_ARGUMENT fires before PATH_VIOLATION for unknown scheme with traversal path [US-G3/AC-4]
+    When cpp_export_to_graphdb is called with traversal path and unknown scheme db_uri
+    Then the response code is "INVALID_ARGUMENT"
+    And the response code is not "PATH_VIOLATION"
+
+  @SC_US_G3_4b
+  Scenario: INVALID_ARGUMENT fires before FILE_NOT_FOUND for unknown scheme [US-G3/AC-4]
+    When cpp_export_to_graphdb is called with non-existent path and unknown scheme db_uri
+    Then the response code is "INVALID_ARGUMENT"
+
+  @SC_US_G3_4c
+  Scenario: PATH_VIOLATION still fires for known scheme with traversal path [US-G3/AC-4 regression]
+    When cpp_export_to_graphdb is called with file_path_or_dir containing path traversal
+    Then the response code is "PATH_VIOLATION"

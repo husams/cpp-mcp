@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -55,17 +54,15 @@ def call_no_build_path_flags(
     from cpp_mcp.tools.get_definition import get_definition
 
     session = ClangSession(capacity=4)
-    result = asyncio.run(
-        get_definition(
-            file_path=ctx["current_file"],
-            line=1,
-            col=5,
-            build_path=None,
-            allowed_roots=(str(tmp_allowed_root),),
-            default_flags=default_flags,
-            session=session,
-            request_id="test-default-flags-1",
-        )
+    result = get_definition(
+        file_path=ctx["current_file"],
+        line=1,
+        col=5,
+        build_path=None,
+        allowed_roots=(str(tmp_allowed_root),),
+        default_flags=default_flags,
+        session=session,
+        request_id="test-default-flags-1",
     )
     ctx["result"] = result
 
@@ -81,17 +78,15 @@ def call_with_empty_build_path(
     from cpp_mcp.tools.get_definition import get_definition
 
     session = ClangSession(capacity=4)
-    result = asyncio.run(
-        get_definition(
-            file_path=ctx["current_file"],
-            line=1,
-            col=5,
-            build_path=ctx["build_path"],
-            allowed_roots=(str(tmp_allowed_root),),
-            default_flags=default_flags,
-            session=session,
-            request_id="test-default-flags-2",
-        )
+    result = get_definition(
+        file_path=ctx["current_file"],
+        line=1,
+        col=5,
+        build_path=ctx["build_path"],
+        allowed_roots=(str(tmp_allowed_root),),
+        default_flags=default_flags,
+        session=session,
+        request_id="test-default-flags-2",
     )
     ctx["result"] = result
 

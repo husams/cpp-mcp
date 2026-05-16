@@ -8,7 +8,6 @@ QA additions (mandatory — SC-US-11-1 coverage):
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -37,18 +36,10 @@ def record_mtime(ctx: dict[str, Any]) -> None:
 
 @given("the app is built")
 def build_app_fixture(tmp_allowed_root: Path, ctx: dict[str, Any]) -> None:
-    from cpp_mcp.server.app import build_app
-    from cpp_mcp.server.config import load_config
+    from cpp_mcp.core.clang_session import ClangSession
 
-    config = load_config(
-        env={
-            "CPP_MCP_ALLOWED_ROOTS": str(tmp_allowed_root),
-            "CPP_MCP_CACHE_CAPACITY": "4",
-        }
-    )
-    server, session = build_app(config)
-    ctx["server"] = server
-    ctx["session"] = session
+    ctx["session"] = ClangSession(capacity=4)
+    ctx["allowed_roots"] = (str(tmp_allowed_root),)
 
 
 @requires_libclang
@@ -58,31 +49,20 @@ def call_get_definition_app_read_only(
     tmp_allowed_root: Path,
     default_flags: tuple[str, ...],
 ) -> None:
-    from cpp_mcp.server.app import build_app
-    from cpp_mcp.server.config import load_config
-
-    config = load_config(
-        env={
-            "CPP_MCP_ALLOWED_ROOTS": str(tmp_allowed_root),
-            "CPP_MCP_CACHE_CAPACITY": "4",
-        }
-    )
-    _server, session = build_app(config)
-
+    from cpp_mcp.core.clang_session import ClangSession
     from cpp_mcp.tools.get_definition import get_definition
 
+    session = ClangSession(capacity=4)
     try:
-        result = asyncio.run(
-            get_definition(
-                file_path=ctx["current_file"],
-                line=1,
-                col=5,
-                build_path=None,
-                allowed_roots=(str(tmp_allowed_root),),
-                default_flags=default_flags,
-                session=session,
-                request_id="test-read-only",
-            )
+        result = get_definition(
+            file_path=ctx["current_file"],
+            line=1,
+            col=5,
+            build_path=None,
+            allowed_roots=(str(tmp_allowed_root),),
+            default_flags=default_flags,
+            session=session,
+            request_id="test-read-only",
         )
         ctx["result"] = result
     except Exception as exc:
@@ -102,167 +82,90 @@ def call_any_nav_tool(
     SC-US-11-1: each tool must leave the file mtime unchanged.
     This step handles the Scenario Outline rows in SC_US_11_1_ALL_TOOLS.
     """
-    from cpp_mcp.server.app import build_app
-    from cpp_mcp.server.config import load_config
+    from cpp_mcp.core.clang_session import ClangSession
 
-    config = load_config(
-        env={
-            "CPP_MCP_ALLOWED_ROOTS": str(tmp_allowed_root),
-            "CPP_MCP_CACHE_CAPACITY": "4",
-        }
-    )
-    _server, session = build_app(config)
-
+    session = ClangSession(capacity=4)
     file_path = ctx["current_file"]
     allowed_roots = (str(tmp_allowed_root),)
     request_id = f"test-read-only-{tool_name}"
 
-    _DISPATCH: dict[str, Any] = {
-        "cpp_get_definition": lambda: _run_get_definition(
-            file_path, allowed_roots, default_flags, session, request_id
-        ),
-        "cpp_get_references": lambda: _run_get_references(
-            file_path, allowed_roots, default_flags, session, request_id
-        ),
-        "cpp_get_type_info": lambda: _run_get_type_info(
-            file_path, allowed_roots, default_flags, session, request_id
-        ),
-        "cpp_get_ast": lambda: _run_get_ast(file_path, allowed_roots, default_flags, session),
-        "cpp_get_header_info": lambda: _run_get_header_info(
-            file_path, allowed_roots, default_flags, session
-        ),
-        "cpp_get_preprocessor_state": lambda: _run_get_preprocessor_state(
-            file_path, allowed_roots, default_flags, session
-        ),
-    }
+    def _dispatch() -> dict[str, Any]:
+        if tool_name == "cpp_get_definition":
+            from cpp_mcp.tools.get_definition import get_definition
 
-    if tool_name not in _DISPATCH:
-        raise ValueError(f"Unknown tool_name in parametrised step: {tool_name!r}")
+            return get_definition(
+                file_path=file_path,
+                line=1,
+                col=5,
+                build_path=None,
+                allowed_roots=allowed_roots,
+                default_flags=default_flags,
+                session=session,
+                request_id=request_id,
+            )
+        elif tool_name == "cpp_get_references":
+            from cpp_mcp.tools.get_references import get_references
+
+            return get_references(
+                file_path=file_path,
+                line=1,
+                col=5,
+                build_path=None,
+                allowed_roots=allowed_roots,
+                default_flags=default_flags,
+                session=session,
+                request_id=request_id,
+            )
+        elif tool_name == "cpp_get_type_info":
+            from cpp_mcp.tools.get_type_info import get_type_info
+
+            return get_type_info(
+                file_path=file_path,
+                line=1,
+                col=5,
+                build_path=None,
+                allowed_roots=allowed_roots,
+                default_flags=default_flags,
+                session=session,
+                request_id=request_id,
+            )
+        elif tool_name == "cpp_get_ast":
+            from cpp_mcp.tools.get_ast import cpp_get_ast
+
+            return cpp_get_ast(
+                file_path=file_path,
+                allowed_roots=allowed_roots,
+                default_flags=default_flags,
+                session=session,
+                build_path=None,
+            )
+        elif tool_name == "cpp_get_header_info":
+            from cpp_mcp.tools.get_header_info import cpp_get_header_info
+
+            return cpp_get_header_info(
+                file_path=file_path,
+                allowed_roots=allowed_roots,
+                default_flags=default_flags,
+                session=session,
+                build_path=None,
+            )
+        elif tool_name == "cpp_get_preprocessor_state":
+            from cpp_mcp.tools.get_preprocessor_state import cpp_get_preprocessor_state
+
+            return cpp_get_preprocessor_state(
+                file_path=file_path,
+                allowed_roots=allowed_roots,
+                default_flags=default_flags,
+                session=session,
+                build_path=None,
+            )
+        else:
+            raise ValueError(f"Unknown tool_name in parametrised step: {tool_name!r}")
 
     try:
-        result = asyncio.run(_DISPATCH[tool_name]())
-        ctx["result"] = result
+        ctx["result"] = _dispatch()
     except Exception as exc:
         ctx["result"] = {"exception": str(exc)}
-
-
-# ---------------------------------------------------------------------------
-# Tool dispatch helpers (thin shims for the parametrised step above)
-# ---------------------------------------------------------------------------
-
-
-async def _run_get_definition(
-    file_path: str,
-    allowed_roots: tuple[str, ...],
-    default_flags: tuple[str, ...],
-    session: Any,
-    request_id: str,
-) -> dict[str, Any]:
-    from cpp_mcp.tools.get_definition import get_definition
-
-    return await get_definition(
-        file_path=file_path,
-        line=1,
-        col=5,
-        build_path=None,
-        allowed_roots=allowed_roots,
-        default_flags=default_flags,
-        session=session,
-        request_id=request_id,
-    )
-
-
-async def _run_get_references(
-    file_path: str,
-    allowed_roots: tuple[str, ...],
-    default_flags: tuple[str, ...],
-    session: Any,
-    request_id: str,
-) -> dict[str, Any]:
-    from cpp_mcp.tools.get_references import get_references
-
-    return await get_references(
-        file_path=file_path,
-        line=1,
-        col=5,
-        build_path=None,
-        allowed_roots=allowed_roots,
-        default_flags=default_flags,
-        session=session,
-        request_id=request_id,
-    )
-
-
-async def _run_get_type_info(
-    file_path: str,
-    allowed_roots: tuple[str, ...],
-    default_flags: tuple[str, ...],
-    session: Any,
-    request_id: str,
-) -> dict[str, Any]:
-    from cpp_mcp.tools.get_type_info import get_type_info
-
-    return await get_type_info(
-        file_path=file_path,
-        line=1,
-        col=5,
-        build_path=None,
-        allowed_roots=allowed_roots,
-        default_flags=default_flags,
-        session=session,
-        request_id=request_id,
-    )
-
-
-async def _run_get_ast(
-    file_path: str,
-    allowed_roots: tuple[str, ...],
-    default_flags: tuple[str, ...],
-    session: Any,
-) -> dict[str, Any]:
-    from cpp_mcp.tools.get_ast import cpp_get_ast
-
-    return await cpp_get_ast(
-        file_path=file_path,
-        allowed_roots=allowed_roots,
-        default_flags=default_flags,
-        session=session,
-        build_path=None,
-    )
-
-
-async def _run_get_header_info(
-    file_path: str,
-    allowed_roots: tuple[str, ...],
-    default_flags: tuple[str, ...],
-    session: Any,
-) -> dict[str, Any]:
-    from cpp_mcp.tools.get_header_info import cpp_get_header_info
-
-    return await cpp_get_header_info(
-        file_path=file_path,
-        allowed_roots=allowed_roots,
-        default_flags=default_flags,
-        session=session,
-        build_path=None,
-    )
-
-
-async def _run_get_preprocessor_state(
-    file_path: str,
-    allowed_roots: tuple[str, ...],
-    default_flags: tuple[str, ...],
-    session: Any,
-) -> dict[str, Any]:
-    from cpp_mcp.tools.get_preprocessor_state import cpp_get_preprocessor_state
-
-    return await cpp_get_preprocessor_state(
-        file_path=file_path,
-        allowed_roots=allowed_roots,
-        default_flags=default_flags,
-        session=session,
-        build_path=None,
-    )
 
 
 @then("no error envelope is returned")
@@ -281,15 +184,23 @@ def assert_mtime_unchanged(ctx: dict[str, Any]) -> None:
 
 @then('the app tool list does not contain a tool named "write_file"')
 def assert_no_write_file(ctx: dict[str, Any]) -> None:
-    from cpp_mcp.server.app import _TOOL_SPECS
+    import asyncio
 
-    names = [name for name, _, _ in _TOOL_SPECS]
+    from cpp_mcp.server.app import build_server
+
+    mcp = build_server()
+    tools = asyncio.run(mcp.list_tools())
+    names = [t.name for t in tools]
     assert "write_file" not in names, f"Unexpected tool: write_file in {names}"
 
 
 @then('the app tool list does not contain a tool named "patch_source"')
 def assert_no_patch_source(ctx: dict[str, Any]) -> None:
-    from cpp_mcp.server.app import _TOOL_SPECS
+    import asyncio
 
-    names = [name for name, _, _ in _TOOL_SPECS]
+    from cpp_mcp.server.app import build_server
+
+    mcp = build_server()
+    tools = asyncio.run(mcp.list_tools())
+    names = [t.name for t in tools]
     assert "patch_source" not in names

@@ -30,6 +30,7 @@ class ErrorCode(StrEnum):
     INVALID_ARGUMENT = "INVALID_ARGUMENT"
     PATH_VIOLATION = "PATH_VIOLATION"
     DB_UNREACHABLE = "DB_UNREACHABLE"
+    DEPENDENCY_MISSING = "DEPENDENCY_MISSING"
     PARSE_ERROR = "PARSE_ERROR"
     INTERNAL_ERROR = "INTERNAL_ERROR"
 
@@ -65,6 +66,13 @@ class InvalidArgumentError(Exception):
 
 class DBUnreachableError(Exception):
     """Raised when the graph database cannot be reached."""
+
+
+class DependencyMissingError(Exception):
+    """Raised when an optional Python package required for a backend is not importable.
+
+    Message MUST include the install command so operators know exactly what to run.
+    """
 
 
 class FatalParseError(Exception):
@@ -140,6 +148,7 @@ _EXC_TO_CODE: list[tuple[type[BaseException], ErrorCode]] = [
     (InvalidPositionError, ErrorCode.INVALID_POSITION),
     (InvalidRangeError, ErrorCode.INVALID_RANGE),
     (InvalidArgumentError, ErrorCode.INVALID_ARGUMENT),
+    (DependencyMissingError, ErrorCode.DEPENDENCY_MISSING),
     (DBUnreachableError, ErrorCode.DB_UNREACHABLE),
     (FatalParseError, ErrorCode.PARSE_ERROR),
     # Built-in FileNotFoundError catches both built-in and post-validation paths.

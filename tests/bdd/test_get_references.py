@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import uuid
 from pathlib import Path
 from typing import Any
@@ -65,17 +64,15 @@ def call_get_references(
 
     request_id = uuid.uuid4().hex
     try:
-        result = asyncio.run(
-            get_references(
-                file_path=ctx["current_file"],
-                line=line,
-                col=col,
-                build_path=None,
-                allowed_roots=allowed_roots,
-                default_flags=default_flags,
-                session=clang_session,
-                request_id=request_id,
-            )
+        result = get_references(
+            file_path=ctx["current_file"],
+            line=line,
+            col=col,
+            build_path=None,
+            allowed_roots=allowed_roots,
+            default_flags=default_flags,
+            session=clang_session,
+            request_id=request_id,
         )
         ctx["result"] = result
         ctx["error"] = None

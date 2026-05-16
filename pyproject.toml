@@ -8,17 +8,15 @@ version = "0.1.0"
 description = "C++ Semantic Analysis MCP Server"
 requires-python = ">=3.11"
 dependencies = [
+    "fastmcp~=3.1.0",
     "mcp>=1.0",
     "clang>=17,<20",
 ]
 
 [project.optional-dependencies]
-graphdb = [
-    "neo4j>=5.0",
-]
-http = [
-    "uvicorn>=0.20",
-]
+graphdb-neo4j = ["neo4j>=5,<6"]
+graphdb-indradb = ["indradb>=3.0,<4"]
+graphdb = ["cpp-mcp[graphdb-neo4j]", "cpp-mcp[graphdb-indradb]"]
 dev = [
     "ruff",
     "mypy",
@@ -26,10 +24,11 @@ dev = [
     "pytest-bdd",
     "pytest-asyncio",
     "pytest-cov",
+    "build",
 ]
 
 [project.scripts]
-cpp-mcp = "cpp_mcp.server.stdio_transport:main"
+cpp-mcp = "cpp_mcp.server.app:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/cpp_mcp"]
@@ -40,6 +39,8 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+# B008: FastMCP uses Depends(...) in argument defaults as its DI pattern (ADR-3).
+ignore = ["B008"]
 
 [tool.mypy]
 strict = true
@@ -56,6 +57,7 @@ asyncio_mode = "auto"
 markers = [
     "libclang: requires system libclang",
     "neo4j: requires NEO4J_TEST_URI",
+    "indradb: requires INDRADB_TEST_URI",
     "SC_US_1_1: Story 5 US-1 scenario 1",
     "SC_US_1_5: Story 5 US-1 scenario 5",
     "SC_US_1_6: Story 5 US-1 scenario 6",
@@ -121,6 +123,11 @@ markers = [
     "SC_US_13_1: Story 7 US-13 scenario 1",
     "SC_US_13_2: Story 7 US-13 scenario 2",
     "SC_US_13_3: Story 7 US-13 scenario 3",
+    "SC_USM7_3: Story S3 concurrent HTTP cpp_get_ast calls, thread-affinity",
+    "SC_US_11_1_ALL_TOOLS: Story 7 US-11 all-tools read-only enforcement outline",
+    "SC_USM2_1: Story S2 US-M2 scenario 1 — HTTP transport",
+    "SC_USM2_4: Story S2 US-M2 scenario 4 — HTTP transport",
+    "SC_US_14_CALL_ENVELOPE: subprocess tools/call with path-traversal input",
     "SC_US_14_1: Story 7 US-14 scenario 1",
     "SC_US_14_2: Story 7b US-14 scenario 2 — HTTP transport",
     "SC_US_14_3: Story 7 US-14 scenario 3",
@@ -139,6 +146,19 @@ markers = [
     "SC_US_7_9: Story 8 US-7 scenario 9",
     "SC_US_7_10: Story 8 US-7 scenario 10",
     "SC_US_7_11: Story 8 US-7 scenario 11",
+    # v3 graphdb-multi — US-G5 IndraDB BDD coverage
+    "SC_US_G5_1: US-G5 scenario 1 — single file export to IndraDB fake driver",
+    "SC_US_G5_2: US-G5 scenario 2 — idempotent re-export IndraDB fake driver",
+    "SC_US_G5_3: US-G5 scenario 3 — unreachable daemon returns DB_UNREACHABLE",
+    "SC_US_G5_4: US-G5 scenario 4 — dispatch table covers all IndraDB schemes",
+    "SC_US_G5_5: US-G5 scenario 5 — PATH_VIOLATION with indradb URI",
+    "SC_US_G5_6: US-G5 scenario 6 — FILE_NOT_FOUND with indradb URI",
+    # v3 graphdb-multi — US-G3 dispatch ordering scenarios
+    "SC_US_G3_4a: US-G3 scenario: INVALID_ARGUMENT before PATH_VIOLATION for unknown scheme",
+    "SC_US_G3_4b: US-G3 scenario: INVALID_ARGUMENT before FILE_NOT_FOUND for unknown scheme",
+    "SC_US_G3_4c: US-G3 scenario: PATH_VIOLATION still fires for known scheme with traversal",
+    # S7 — cleanup, entrypoint gate
+    "SC_C10_ENTRY: C-10 console-script entrypoint emits JSON-RPC frame on stdio",
 ]
 
 [dependency-groups]

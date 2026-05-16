@@ -2,7 +2,9 @@
 
 A local Python MCP (Model Context Protocol) server that wraps `libclang` to expose seven read-only C++ semantic analysis tools to LLM agents. Every tool call is stateless — no global project state is held between calls. A TU (Translation Unit) LRU cache avoids redundant parses.
 
-**327 tests pass** (unit + BDD). Python 3.11+. Tested on macOS and Linux.
+**Transport layer:** cpp-mcp uses [FastMCP](https://github.com/jlowin/fastmcp) (`~=3.1.0`) as its MCP transport layer. FastMCP provides production-quality stdio and HTTP/SSE transports, `@mcp.tool` decorator registration, auto-generated JSON schemas from type hints, `lifespan` context management for the libclang session, and `Depends`-based dependency injection. See [`.claude/handoff/v2/runbook.md`](.claude/handoff/v2/runbook.md) for startup instructions, upgrade-check procedure, and install-footprint audit.
+
+**453 tests pass** (unit + BDD). Python 3.11+. Tested on macOS and Linux.
 
 ---
 
@@ -95,6 +97,16 @@ CPP_MCP_ALLOWED_ROOTS="/path/to/your/project" uv run python -m cpp_mcp
 
 Log output goes to stderr; stdout is reserved for the MCP protocol.
 
+## Run (HTTP transport)
+
+```bash
+CPP_MCP_ALLOWED_ROOTS="/path/to/your/project" uv run python -m cpp_mcp http
+```
+
+MCP endpoint: `POST http://127.0.0.1:8000/mcp`. Health check: `GET http://127.0.0.1:8000/health`.
+
+See [`.claude/handoff/v2/runbook.md`](.claude/handoff/v2/runbook.md) for full startup and configuration details.
+
 ---
 
 ## Integrate with Claude Code
@@ -141,23 +153,53 @@ Errors always use a structured envelope:
 { "code": "PATH_VIOLATION", "message": "...", "tool": "cpp_get_definition", "request_id": "..." }
 ```
 
-Valid codes: `FILE_NOT_FOUND`, `INVALID_POSITION`, `INVALID_RANGE`, `INVALID_ARGUMENT`, `PATH_VIOLATION`, `DB_UNREACHABLE`, `PARSE_ERROR`, `INTERNAL_ERROR`.
+Valid codes: `FILE_NOT_FOUND`, `INVALID_POSITION`, `INVALID_RANGE`, `INVALID_ARGUMENT`, `PATH_VIOLATION`, `DEPENDENCY_MISSING`, `DB_UNREACHABLE`, `PARSE_ERROR`, `INTERNAL_ERROR`.
 
 ---
 
-## Optional: Neo4j for cpp_export_to_graphdb
+## Graph database backends
+
+`cpp_export_to_graphdb` supports two backends selected automatically by URI scheme.
+
+### Neo4j (default — Bolt)
+
+Supported schemes: `bolt://`, `bolt+s://`, `bolt+ssc://`, `neo4j://`, `neo4j+s://`, `neo4j+ssc://`.
 
 ```bash
-uv sync --extra graphdb
-```
+# Install driver
+uv sync --extra graphdb-neo4j
 
-Pass `db_uri` (Bolt URI) and `build_path` per call. For a local test instance:
-
-```bash
+# Start a local Neo4j instance
 docker run --rm -p 7687:7687 -p 7474:7474 -e NEO4J_AUTH=none neo4j:5
 ```
 
-To enable the real-Neo4j integration test in CI: `export NEO4J_TEST_URI="bolt://localhost:7687"`.
+License posture: Neo4j Community Edition daemon is GPLv3; the `neo4j` Python Bolt driver is Apache 2.0.
+
+To enable the real-Neo4j integration test: `export NEO4J_TEST_URI="bolt://localhost:7687"`.
+
+### IndraDB (alternative — gRPC)
+
+Supported schemes: `indradb://`, `grpc://`, `indradb+grpc://`. Default port: 27615.
+
+```bash
+# Install driver
+uv sync --extra graphdb-indradb
+
+# Start a local IndraDB instance (docker compose fragment provided)
+docker compose -f tests/fixtures/indradb-compose.yml up -d
+```
+
+License posture: IndraDB daemon and Python client are MPL-2.0 (file-level copyleft; does not propagate to cpp-mcp callers).
+
+To enable the real-IndraDB integration test: `export INDRADB_TEST_URI="indradb://localhost:27615"`.
+
+### Both backends
+
+```bash
+uv sync --extra graphdb   # installs neo4j + indradb drivers
+```
+
+See [`.claude/handoff/v3/runbook.md`](.claude/handoff/v3/runbook.md) for the full URI scheme table, daemon bring-up commands, error-code reference, and license posture details.
 
 ---
 

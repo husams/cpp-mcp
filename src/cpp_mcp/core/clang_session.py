@@ -188,6 +188,11 @@ class ClangSession:
         )
         return result
 
+    @property
+    def executor(self) -> ThreadPoolExecutor:
+        """Return the single-worker executor (ADR-7: tool handlers submit work here)."""
+        return self._executor
+
     def cache_stats(self) -> dict[str, int | float]:
         """Return TU cache statistics (delegates to TUCache.stats())."""
         return self._cache.stats()
@@ -195,3 +200,12 @@ class ClangSession:
     def shutdown(self, wait: bool = True) -> None:
         """Shut down the worker thread pool. Call at server exit."""
         self._executor.shutdown(wait=wait)
+
+    async def aclose(self) -> None:
+        """Async shutdown: drain the executor and clear the TU cache.
+
+        Called by app_lifespan finally block (ADR-7, US-M6/AC-2).
+        Waits for any in-flight work to finish before clearing state.
+        """
+        self._executor.shutdown(wait=True)
+        self._cache.clear()

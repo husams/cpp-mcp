@@ -1,15 +1,19 @@
 """cpp_get_header_info tool: inspect include graph and exported symbols.
 
+S3: converted to sync def + @mcp.tool + Depends DI (ADR-3, ADR-7).
 US-5 / ADR-1 (OQ-6: orphaned = no symbol from include used in current TU).
-Uses tu.get_includes() for transitive include resolution (no extra parse options needed).
 """
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
+
+from fastmcp.dependencies import Depends
 
 from cpp_mcp.core.compile_db import resolve_flags
+from cpp_mcp.core.deps import get_allowed_roots, get_default_flags, get_session
 from cpp_mcp.core.error_envelope import wrap_tool
 from cpp_mcp.core.path_guard import validate_path
 
@@ -52,21 +56,18 @@ def _collect_exported_symbols(tu: Any) -> list[dict[str, Any]]:
         try:
             loc = cursor.location
             if not loc.file:
-                return  # built-in / system
+                return
             kind_name = _cursor_kind_name(cursor)
             if kind_name not in _EXPORTED_KINDS:
                 return
-            # Only include cursors in the main file or included headers.
             try:
                 usr = cursor.get_usr() or ""
             except Exception:
                 usr = ""
-
             try:
                 sig = cursor.displayname or cursor.spelling or ""
             except Exception:
                 sig = ""
-
             symbols.append(
                 {
                     "kind": kind_name,
@@ -134,25 +135,14 @@ def _collect_usrs_in_file(tu: Any, file_name: str) -> frozenset[str]:
     return frozenset(usrs)
 
 
-async def cpp_get_header_info(
+def _do_get_header_info(
     file_path: str,
     allowed_roots: tuple[str, ...],
     default_flags: tuple[str, ...],
     session: Any,
-    build_path: str | None = None,
+    build_path: str | None,
 ) -> dict[str, Any]:
-    """Retrieve include graph and exported symbols for a C++ header or source file.
-
-    Args:
-        file_path: Path to the C++ file (must be within allowed_roots).
-        allowed_roots: Tuple of allowed root directories (from config).
-        default_flags: Compiler flags to use when no compile_commands.json found.
-        session: ClangSession instance for parsing.
-        build_path: Optional path to a build directory with compile_commands.json.
-
-    Returns:
-        Dict with include info, exported symbols, missing/orphaned includes.
-    """
+    """Blocking libclang work; MUST be executed on the single worker thread."""
     validated_file = validate_path(file_path, allowed_roots, kind="file")
 
     validated_build: Path | None = None
@@ -160,12 +150,10 @@ async def cpp_get_header_info(
         validated_build = validate_path(build_path, allowed_roots, kind="dir")
 
     flags, flags_source = resolve_flags(validated_file, validated_build, default_flags)
-
-    tu, cache_hit = await session.parse(validated_file, validated_build, flags)
+    tu, cache_hit = session._get_or_parse_sync(validated_file, validated_build, flags)
 
     main_file_str = str(validated_file)
 
-    # --- Collect includes via tu.get_includes() ---
     direct_includes: list[str] = []
     transitive_includes: list[str] = []
     missing_includes: list[str] = []
@@ -183,7 +171,6 @@ async def cpp_get_header_info(
             include_file = None
 
         if include_file is None:
-            # Unresolved include — collect from diagnostics below.
             continue
 
         if inc.depth == 1 and include_file not in direct_includes:
@@ -193,22 +180,15 @@ async def cpp_get_header_info(
             seen_transitive.add(include_file)
             transitive_includes.append(include_file)
 
-    # Missing includes: pick up from diagnostics (file-not-found messages).
     for diag in tu.diagnostics:
         msg = diag.spelling or ""
         if "file not found" in msg.lower() or "no such file" in msg.lower():
-            # Extract the include name from the message.
-            # Common format: "'foo.h' file not found"
-            import re
-
             m = re.search(r"['\"]([^'\"]+)['\"]", msg)
             if m:
                 inc_name = m.group(1)
                 if inc_name not in missing_includes:
                     missing_includes.append(inc_name)
 
-    # Orphaned includes (ADR-1 / OQ-6): direct includes with no symbols used
-    # in the main file's cursor tree.
     referenced_usrs = _collect_usrs_in_main_file(tu, main_file_str)
     orphaned_includes: list[str] = []
     for inc_path in direct_includes:
@@ -216,7 +196,6 @@ async def cpp_get_header_info(
         if defined_usrs and not defined_usrs.intersection(referenced_usrs):
             orphaned_includes.append(inc_path)
 
-    # Exported symbols.
     exported_symbols = _collect_exported_symbols(tu)
 
     return {
@@ -230,24 +209,60 @@ async def cpp_get_header_info(
     }
 
 
-def make_cpp_get_header_info(
+def cpp_get_header_info(
+    file_path: str,
     allowed_roots: tuple[str, ...],
     default_flags: tuple[str, ...],
     session: Any,
-) -> Any:
-    """Return a wrap_tool-decorated callable bound to runtime config."""
+    build_path: str | None = None,
+) -> dict[str, Any]:
+    """Sync entry point used directly by BDD/unit tests.
 
+    Args:
+        file_path: Path to the C++ file (must be within allowed_roots).
+        allowed_roots: Tuple of allowed root directories (from config).
+        default_flags: Compiler flags to use when no compile_commands.json found.
+        session: ClangSession instance for parsing.
+        build_path: Optional path to a build directory with compile_commands.json.
+
+    Returns:
+        Dict with include info, exported symbols, missing/orphaned includes.
+    """
+    return _do_get_header_info(
+        file_path=file_path,
+        allowed_roots=allowed_roots,
+        default_flags=default_flags,
+        session=session,
+        build_path=build_path,
+    )
+
+
+def _register(mcp: Any) -> None:
+    """Register cpp_get_header_info against *mcp*. Called by build_server()."""
+
+    @mcp.tool(  # type: ignore[untyped-decorator]
+        name="cpp_get_header_info",
+        description=(
+            "Inspect the include graph and exported symbols for a C++ header or source file."
+        ),
+    )
     @wrap_tool(_TOOL_NAME)
-    async def _tool(
-        file_path: str,
-        build_path: str | None = None,
+    def cpp_get_header_info_tool(
+        file_path: Annotated[str, "Absolute path to the C++ header or source file."],
+        build_path: Annotated[
+            str | None,
+            "Optional path to the build directory containing compile_commands.json.",
+        ] = None,
+        *,
+        session: Any = Depends(get_session),
+        allowed_roots: tuple[str, ...] = Depends(get_allowed_roots),
+        default_flags: tuple[str, ...] = Depends(get_default_flags),
     ) -> dict[str, Any]:
-        return await cpp_get_header_info(
-            file_path=file_path,
-            allowed_roots=allowed_roots,
-            default_flags=default_flags,
-            session=session,
-            build_path=build_path,
-        )
-
-    return _tool
+        return session.executor.submit(  # type: ignore[no-any-return]
+            _do_get_header_info,
+            file_path,
+            allowed_roots,
+            default_flags,
+            session,
+            build_path,
+        ).result()

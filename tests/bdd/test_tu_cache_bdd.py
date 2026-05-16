@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -51,31 +50,27 @@ def call_twice(
     ctx["session"] = session
 
     # First call
-    asyncio.run(
-        get_definition(
-            file_path=ctx["current_file"],
-            line=1,
-            col=5,
-            build_path=None,
-            allowed_roots=(str(tmp_allowed_root),),
-            default_flags=default_flags,
-            session=session,
-            request_id="cache-call-1",
-        )
+    get_definition(
+        file_path=ctx["current_file"],
+        line=1,
+        col=5,
+        build_path=None,
+        allowed_roots=(str(tmp_allowed_root),),
+        default_flags=default_flags,
+        session=session,
+        request_id="cache-call-1",
     )
 
     # Second call — should hit cache
-    result = asyncio.run(
-        get_definition(
-            file_path=ctx["current_file"],
-            line=1,
-            col=5,
-            build_path=None,
-            allowed_roots=(str(tmp_allowed_root),),
-            default_flags=default_flags,
-            session=session,
-            request_id="cache-call-2",
-        )
+    result = get_definition(
+        file_path=ctx["current_file"],
+        line=1,
+        col=5,
+        build_path=None,
+        allowed_roots=(str(tmp_allowed_root),),
+        default_flags=default_flags,
+        session=session,
+        request_id="cache-call-2",
     )
     ctx["result"] = result
 
@@ -93,17 +88,15 @@ def call_once(
     session = ClangSession(capacity=4)
     ctx["session"] = session
 
-    result = asyncio.run(
-        get_definition(
-            file_path=ctx["current_file"],
-            line=1,
-            col=5,
-            build_path=None,
-            allowed_roots=(str(tmp_allowed_root),),
-            default_flags=default_flags,
-            session=session,
-            request_id="cache-miss-1",
-        )
+    result = get_definition(
+        file_path=ctx["current_file"],
+        line=1,
+        col=5,
+        build_path=None,
+        allowed_roots=(str(tmp_allowed_root),),
+        default_flags=default_flags,
+        session=session,
+        request_id="cache-miss-1",
     )
     ctx["result"] = result
 

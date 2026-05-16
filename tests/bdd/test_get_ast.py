@@ -38,96 +38,81 @@ def _fixture_file_exists(name: str, ctx: dict[str, Any]) -> None:
 
 @when('cpp_get_ast is called with format="json"')
 def _call_ast_json(clang_session: Any, ctx: dict[str, Any]) -> None:
-    import asyncio
 
     from cpp_mcp.tools.get_ast import cpp_get_ast
 
     file_path = str(ctx["root"] / "ast_test.cpp")
-    ctx["response"] = asyncio.run(
-        cpp_get_ast(
-            file_path=file_path,
-            allowed_roots=ctx["allowed_roots"],
-            default_flags=ctx["default_flags"],
-            session=clang_session,
-            format="json",
-        )
+    ctx["response"] = cpp_get_ast(
+        file_path=file_path,
+        allowed_roots=ctx["allowed_roots"],
+        default_flags=ctx["default_flags"],
+        session=clang_session,
+        format="json",
     )
 
 
 @when('cpp_get_ast is called with format="graph"')
 def _call_ast_graph(clang_session: Any, ctx: dict[str, Any]) -> None:
-    import asyncio
 
     from cpp_mcp.tools.get_ast import cpp_get_ast
 
     file_path = str(ctx["root"] / "ast_test.cpp")
-    ctx["response"] = asyncio.run(
-        cpp_get_ast(
-            file_path=file_path,
-            allowed_roots=ctx["allowed_roots"],
-            default_flags=ctx["default_flags"],
-            session=clang_session,
-            format="graph",
-        )
+    ctx["response"] = cpp_get_ast(
+        file_path=file_path,
+        allowed_roots=ctx["allowed_roots"],
+        default_flags=ctx["default_flags"],
+        session=clang_session,
+        format="graph",
     )
 
 
 @when('cpp_get_ast is called with format="json" and depth=2')
 def _call_ast_depth2(clang_session: Any, ctx: dict[str, Any]) -> None:
-    import asyncio
 
     from cpp_mcp.tools.get_ast import cpp_get_ast
 
     file_path = str(ctx["root"] / "ast_test.cpp")
-    ctx["response"] = asyncio.run(
-        cpp_get_ast(
-            file_path=file_path,
-            allowed_roots=ctx["allowed_roots"],
-            default_flags=ctx["default_flags"],
-            session=clang_session,
-            format="json",
-            depth=2,
-        )
+    ctx["response"] = cpp_get_ast(
+        file_path=file_path,
+        allowed_roots=ctx["allowed_roots"],
+        default_flags=ctx["default_flags"],
+        session=clang_session,
+        format="json",
+        depth=2,
     )
     ctx["depth_limit"] = 2
 
 
 @when('cpp_get_ast is called with format="json" and no depth')
 def _call_ast_no_depth(clang_session: Any, ctx: dict[str, Any]) -> None:
-    import asyncio
 
     from cpp_mcp.tools.get_ast import cpp_get_ast
 
     file_path = str(ctx["root"] / "ast_test.cpp")
-    ctx["response"] = asyncio.run(
-        cpp_get_ast(
-            file_path=file_path,
-            allowed_roots=ctx["allowed_roots"],
-            default_flags=ctx["default_flags"],
-            session=clang_session,
-            format="json",
-        )
+    ctx["response"] = cpp_get_ast(
+        file_path=file_path,
+        allowed_roots=ctx["allowed_roots"],
+        default_flags=ctx["default_flags"],
+        session=clang_session,
+        format="json",
     )
     ctx["depth_limit"] = 3
 
 
 @when("cpp_get_ast is called with start_line=1 and end_line=10")
 def _call_ast_range(clang_session: Any, ctx: dict[str, Any]) -> None:
-    import asyncio
 
     from cpp_mcp.tools.get_ast import cpp_get_ast
 
     file_path = str(ctx["root"] / "ast_test.cpp")
-    ctx["response"] = asyncio.run(
-        cpp_get_ast(
-            file_path=file_path,
-            allowed_roots=ctx["allowed_roots"],
-            default_flags=ctx["default_flags"],
-            session=clang_session,
-            format="json",
-            start_line=1,
-            end_line=10,
-        )
+    ctx["response"] = cpp_get_ast(
+        file_path=file_path,
+        allowed_roots=ctx["allowed_roots"],
+        default_flags=ctx["default_flags"],
+        session=clang_session,
+        format="json",
+        start_line=1,
+        end_line=10,
     )
     ctx["range_lo"] = 1
     ctx["range_hi"] = 10
@@ -135,25 +120,21 @@ def _call_ast_range(clang_session: Any, ctx: dict[str, Any]) -> None:
 
 @when(parsers.parse('cpp_get_ast is called on "{name}" with format="json"'))
 def _call_ast_named_file(name: str, clang_session: Any, ctx: dict[str, Any]) -> None:
-    import asyncio
 
     from cpp_mcp.tools.get_ast import cpp_get_ast
 
     file_path = str(ctx["root"] / name)
-    ctx["response"] = asyncio.run(
-        cpp_get_ast(
-            file_path=file_path,
-            allowed_roots=ctx["allowed_roots"],
-            default_flags=ctx["default_flags"],
-            session=clang_session,
-            format="json",
-        )
+    ctx["response"] = cpp_get_ast(
+        file_path=file_path,
+        allowed_roots=ctx["allowed_roots"],
+        default_flags=ctx["default_flags"],
+        session=clang_session,
+        format="json",
     )
 
 
 @when("cpp_get_ast is called on a non-existent file")
 def _call_ast_nonexistent(ctx: dict[str, Any]) -> None:
-
     from cpp_mcp.core.error_envelope import ErrorCode, build_error
     from cpp_mcp.tools.get_ast import cpp_get_ast
 
@@ -184,7 +165,6 @@ def _call_ast_nonexistent(ctx: dict[str, Any]) -> None:
 
 @when("cpp_get_ast is called with start_line=30 and end_line=10")
 def _call_ast_invalid_range(ctx: dict[str, Any]) -> None:
-    import asyncio
 
     from cpp_mcp.core.error_envelope import ErrorCode, InvalidRangeError, build_error
     from cpp_mcp.tools.get_ast import cpp_get_ast
@@ -196,15 +176,13 @@ def _call_ast_invalid_range(ctx: dict[str, Any]) -> None:
             raise RuntimeError("should not be called")
 
     try:
-        result = asyncio.run(
-            cpp_get_ast(
-                file_path=file_path,
-                allowed_roots=ctx["allowed_roots"],
-                default_flags=ctx["default_flags"],
-                session=_FakeSession(),
-                start_line=30,
-                end_line=10,
-            )
+        result = cpp_get_ast(
+            file_path=file_path,
+            allowed_roots=ctx["allowed_roots"],
+            default_flags=ctx["default_flags"],
+            session=_FakeSession(),
+            start_line=30,
+            end_line=10,
         )
         ctx["response"] = result
     except InvalidRangeError as exc:
@@ -213,7 +191,6 @@ def _call_ast_invalid_range(ctx: dict[str, Any]) -> None:
 
 @when(parsers.parse('cpp_get_ast is called with file_path "{raw_path}"'))
 def _call_ast_path_traversal(raw_path: str, ctx: dict[str, Any]) -> None:
-    import asyncio
 
     from cpp_mcp.core.error_envelope import ErrorCode, PathViolationError, build_error
     from cpp_mcp.tools.get_ast import cpp_get_ast
@@ -223,13 +200,11 @@ def _call_ast_path_traversal(raw_path: str, ctx: dict[str, Any]) -> None:
             raise RuntimeError("should not be called")
 
     try:
-        result = asyncio.run(
-            cpp_get_ast(
-                file_path=raw_path,
-                allowed_roots=ctx["allowed_roots"],
-                default_flags=ctx["default_flags"],
-                session=_FakeSession(),
-            )
+        result = cpp_get_ast(
+            file_path=raw_path,
+            allowed_roots=ctx["allowed_roots"],
+            default_flags=ctx["default_flags"],
+            session=_FakeSession(),
         )
         ctx["response"] = result
     except PathViolationError as exc:
@@ -238,19 +213,16 @@ def _call_ast_path_traversal(raw_path: str, ctx: dict[str, Any]) -> None:
 
 @when("cpp_get_ast is called with no build_path")
 def _call_ast_no_build_path(clang_session: Any, ctx: dict[str, Any]) -> None:
-    import asyncio
 
     from cpp_mcp.tools.get_ast import cpp_get_ast
 
     file_path = str(ctx["root"] / "ast_test.cpp")
-    ctx["response"] = asyncio.run(
-        cpp_get_ast(
-            file_path=file_path,
-            allowed_roots=ctx["allowed_roots"],
-            default_flags=ctx["default_flags"],
-            session=clang_session,
-            build_path=None,
-        )
+    ctx["response"] = cpp_get_ast(
+        file_path=file_path,
+        allowed_roots=ctx["allowed_roots"],
+        default_flags=ctx["default_flags"],
+        session=clang_session,
+        build_path=None,
     )
 
 

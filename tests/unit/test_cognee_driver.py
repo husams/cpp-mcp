@@ -380,38 +380,26 @@ def test_node_key_distinct_from_edge_key() -> None:
 
 
 # ---------------------------------------------------------------------------
-# make_driver factory — cognee:// scheme
+# select_driver — cognee:// scheme is NOT wired (ADR-12 v3 scope)
 # ---------------------------------------------------------------------------
 
 
-def test_make_driver_cognee_scheme_returns_cognee_driver() -> None:
-    """make_driver('cognee://...') returns a CogneeDriver instance."""
-    import cpp_mcp.graphdb.cognee_driver as _cd
-    from cpp_mcp.graphdb import make_driver
+def test_select_driver_cognee_scheme_raises_invalid_argument() -> None:
+    """select_driver does not wire cognee:// — ADR-12 scopes dispatch to Neo4j + IndraDB."""
+    from cpp_mcp.core.error_envelope import InvalidArgumentError
+    from cpp_mcp.graphdb import select_driver
 
-    original_transport = _cd.CliCogneeTransport
-
-    class PatchedCli:
-        def ingest(
-            self, key: str, payload: dict[str, Any], dataset: str, node_set: list[str]
-        ) -> None:
-            pass
-
-    _cd.CliCogneeTransport = PatchedCli  # type: ignore[misc]
-    try:
-        driver = make_driver("cognee://test-graph")
-        assert isinstance(driver, CogneeDriver)
-        driver.close()
-    finally:
-        _cd.CliCogneeTransport = original_transport  # type: ignore[misc]
+    with pytest.raises(InvalidArgumentError, match="Unsupported"):
+        select_driver("cognee://test-graph")
 
 
-def test_make_driver_unknown_scheme_raises() -> None:
-    """make_driver raises ValueError for unsupported URI schemes."""
-    from cpp_mcp.graphdb import make_driver
+def test_select_driver_unknown_scheme_raises_invalid_argument() -> None:
+    """select_driver raises InvalidArgumentError (not ValueError) for unsupported schemes."""
+    from cpp_mcp.core.error_envelope import InvalidArgumentError
+    from cpp_mcp.graphdb import select_driver
 
-    with pytest.raises(ValueError, match="Unsupported"):
-        make_driver("postgres://localhost/mydb")
+    with pytest.raises(InvalidArgumentError, match="Unsupported"):
+        select_driver("postgres://localhost/mydb")
 
 
 # ---------------------------------------------------------------------------

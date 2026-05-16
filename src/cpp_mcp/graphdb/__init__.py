@@ -5,76 +5,79 @@ Public API
 - :class:`~cpp_mcp.graphdb.driver.GraphDriver` — structural Protocol
 - :class:`~cpp_mcp.graphdb.driver.NodeRecord` — TypedDict for nodes
 - :class:`~cpp_mcp.graphdb.driver.EdgeRecord` — TypedDict for edges
-- :func:`make_driver` — factory: returns the right driver for a given URI scheme
+- :func:`select_driver` — pure scheme dispatch: returns an *unconnected* driver
+  instance for the given URI; caller must invoke :meth:`GraphDriver.connect` next.
 
 URI schemes
 -----------
-``bolt://...``
+``bolt://``, ``bolt+s://``, ``bolt+ssc://``, ``neo4j://``, ``neo4j+s://``, ``neo4j+ssc://``
     Returns a :class:`~cpp_mcp.graphdb.neo4j_driver.Neo4jDriver`.
 
-``cognee://<dataset>``
-    Returns a :class:`~cpp_mcp.graphdb.cognee_driver.CogneeDriver` targeting
-    the named Cognee dataset.
+``indradb://``, ``grpc://``, ``indradb+grpc://``
+    Returns a :class:`~cpp_mcp.graphdb.indradb_driver.IndraDBDriver`.
 """
 
 from __future__ import annotations
 
-from typing import Any
 from urllib.parse import urlparse
 
+from cpp_mcp.core.error_envelope import InvalidArgumentError
 from cpp_mcp.graphdb.driver import EdgeRecord, GraphDriver, NodeRecord
 
 __all__ = [
     "EdgeRecord",
     "GraphDriver",
     "NodeRecord",
-    "make_driver",
+    "select_driver",
 ]
 
+_NEO4J_SCHEMES: frozenset[str] = frozenset(
+    {"bolt", "bolt+s", "bolt+ssc", "neo4j", "neo4j+s", "neo4j+ssc"}
+)
+_INDRADB_SCHEMES: frozenset[str] = frozenset({"indradb", "grpc", "indradb+grpc"})
 
-def make_driver(uri: str, **kwargs: Any) -> GraphDriver:
-    """Return a concrete :class:`GraphDriver` appropriate for *uri*'s scheme.
+
+def select_driver(db_uri: str) -> GraphDriver:
+    """Return an *unconnected* :class:`GraphDriver` instance for *db_uri*'s scheme.
+
+    This function is pure scheme dispatch — no I/O, no package imports.
+    The caller must invoke :meth:`GraphDriver.connect` after receiving the instance.
 
     Args:
-        uri:      Driver URI.  Supported schemes:
+        db_uri: Driver URI including scheme (e.g. ``"bolt://localhost:7687"``).
+            Supported schemes:
 
-                  - ``bolt://...`` — Neo4j Bolt driver.
-                  - ``neo4j://...`` or ``neo4j+s://...`` — Neo4j routing driver.
-                  - ``cognee://<dataset>`` — Cognee ingest driver.
-
-        **kwargs: Forwarded verbatim to :meth:`GraphDriver.connect`.
+            - Neo4j: ``bolt``, ``bolt+s``, ``bolt+ssc``, ``neo4j``, ``neo4j+s``,
+              ``neo4j+ssc``.
+            - IndraDB: ``indradb``, ``grpc``, ``indradb+grpc``.
 
     Returns:
-        A connected :class:`GraphDriver` instance.
+        An unconnected :class:`GraphDriver` instance appropriate for the scheme.
 
     Raises:
-        :exc:`cpp_mcp.core.error_envelope.DBUnreachableError`: if the
-            underlying driver cannot establish a connection.
-        :exc:`ValueError`: if *uri*'s scheme is not recognised.
+        :exc:`~cpp_mcp.core.error_envelope.InvalidArgumentError`: if *db_uri* is
+            empty, missing ``://``, or has an unrecognised scheme.
 
     Example::
 
-        driver = make_driver("bolt://localhost:7687", auth=("neo4j", "pass"))
-        driver = make_driver("cognee://cpp-knowledge", node_set=["project:myrepo"])
+        driver = select_driver("bolt://localhost:7687")
+        driver.connect("bolt://localhost:7687")
     """
-    scheme = urlparse(uri).scheme
-
-    if scheme in ("bolt", "neo4j", "neo4j+s", "bolt+s"):
-        # Lazy import so neo4j package is optional.
+    if not db_uri or "://" not in db_uri:
+        raise InvalidArgumentError(
+            f"db_uri must include a scheme (got {db_uri!r}); "
+            f"supported: {sorted(_NEO4J_SCHEMES | _INDRADB_SCHEMES)}"
+        )
+    scheme = urlparse(db_uri).scheme
+    if scheme in _NEO4J_SCHEMES:
         from cpp_mcp.graphdb.neo4j_driver import Neo4jDriver
 
-        driver: GraphDriver = Neo4jDriver()
-        driver.connect(uri, **kwargs)
-        return driver
+        return Neo4jDriver()
+    if scheme in _INDRADB_SCHEMES:
+        from cpp_mcp.graphdb.indradb_driver import IndraDBDriver
 
-    if scheme == "cognee":
-        from cpp_mcp.graphdb.cognee_driver import CogneeDriver
-
-        cdriver = CogneeDriver()
-        cdriver.connect(uri, **kwargs)
-        return cdriver
-
-    raise ValueError(
-        f"Unsupported graph database URI scheme {scheme!r} in {uri!r}. "
-        "Expected 'bolt://', 'neo4j://', or 'cognee://'."
+        return IndraDBDriver()
+    raise InvalidArgumentError(
+        f"Unsupported db_uri scheme {scheme!r}; "
+        f"supported: {sorted(_NEO4J_SCHEMES | _INDRADB_SCHEMES)}"
     )

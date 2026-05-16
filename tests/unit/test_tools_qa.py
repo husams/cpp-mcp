@@ -241,34 +241,30 @@ def test_invalid_range_boundary(
     default_flags = ("-std=c++17", "-x", "c++")
 
     class _FakeSession:
-        async def parse(self, *a: Any, **kw: Any) -> Any:  # pragma: no cover
+        def _get_or_parse_sync(self, *a: Any, **kw: Any) -> Any:
             raise RuntimeError("should not be called when range validation fires first")
 
     if should_raise:
         with pytest.raises(InvalidRangeError):
-            asyncio.run(
-                cpp_get_ast(
-                    file_path=str(cpp_file),
-                    allowed_roots=allowed_roots,
-                    default_flags=default_flags,
-                    session=_FakeSession(),
-                    start_line=start_line,
-                    end_line=end_line,
-                )
+            cpp_get_ast(
+                file_path=str(cpp_file),
+                allowed_roots=allowed_roots,
+                default_flags=default_flags,
+                session=_FakeSession(),
+                start_line=start_line,
+                end_line=end_line,
             )
     else:
         # Should not raise InvalidRangeError (may fail later when session.parse
         # is called — we only care the range check itself passes)
         try:
-            asyncio.run(
-                cpp_get_ast(
-                    file_path=str(cpp_file),
-                    allowed_roots=allowed_roots,
-                    default_flags=default_flags,
-                    session=_FakeSession(),
-                    start_line=start_line,
-                    end_line=end_line,
-                )
+            cpp_get_ast(
+                file_path=str(cpp_file),
+                allowed_roots=allowed_roots,
+                default_flags=default_flags,
+                session=_FakeSession(),
+                start_line=start_line,
+                end_line=end_line,
             )
         except InvalidRangeError as exc:
             pytest.fail(
@@ -361,17 +357,15 @@ def test_fatal_parse_error_raised_when_zero_nodes_and_fatal_diag(tmp_path: Path)
     cpp_file.write_bytes(b"\xff\x00\xff\x00")  # garbage binary
 
     class _FakeSession:
-        async def parse(self, *a: Any, **kw: Any) -> tuple[Any, bool]:
+        def _get_or_parse_sync(self, *a: Any, **kw: Any) -> tuple[Any, bool]:
             return mock_tu, False
 
     with pytest.raises(FatalParseError):
-        asyncio.run(
-            cpp_get_ast(
-                file_path=str(cpp_file),
-                allowed_roots=(str(allowed_root),),
-                default_flags=("-std=c++17", "-x", "c++"),
-                session=_FakeSession(),
-            )
+        cpp_get_ast(
+            file_path=str(cpp_file),
+            allowed_roots=(str(allowed_root),),
+            default_flags=("-std=c++17", "-x", "c++"),
+            session=_FakeSession(),
         )
 
 
@@ -389,7 +383,6 @@ def test_preprocessor_ifdef_debug_evaluated_result_is_true(tmp_path: Path) -> No
 
     Covers SC-US-6-3 (US-6/AC-3).
     """
-    import asyncio
 
     from cpp_mcp.core.clang_session import ClangSession
     from cpp_mcp.tools.get_preprocessor_state import cpp_get_preprocessor_state
@@ -401,13 +394,11 @@ def test_preprocessor_ifdef_debug_evaluated_result_is_true(tmp_path: Path) -> No
 
     # Pass -DDEBUG=1 so the #ifdef DEBUG block should be evaluated as true.
     flags = ("-std=c++17", "-x", "c++", "-DDEBUG=1")
-    response = asyncio.run(
-        cpp_get_preprocessor_state(
-            file_path=str(cpp_file),
-            allowed_roots=(str(root),),
-            default_flags=flags,
-            session=session,
-        )
+    response = cpp_get_preprocessor_state(
+        file_path=str(cpp_file),
+        allowed_roots=(str(root),),
+        default_flags=flags,
+        session=session,
     )
 
     assert "code" not in response, f"Unexpected error: {response}"
@@ -458,7 +449,6 @@ def test_type_info_auto_resolves_to_float(tmp_path: Path) -> None:
     Regression pin for SC-US-3-2 (US-3/AC-2). The BDD test already covers this
     but the AC is critical — this unit-level pin catches it without pytest-bdd overhead.
     """
-    import asyncio
 
     from cpp_mcp.core.clang_session import ClangSession
     from cpp_mcp.tools.get_type_info import get_type_info
@@ -469,17 +459,15 @@ def test_type_info_auto_resolves_to_float(tmp_path: Path) -> None:
     session = ClangSession(capacity=4)
 
     # types_test.cpp has 'auto val = 3.14f;' at line 8, col 6 (developer-confirmed).
-    response = asyncio.run(
-        get_type_info(
-            file_path=str(cpp_file),
-            line=8,
-            col=6,
-            build_path=None,
-            allowed_roots=(str(root),),
-            default_flags=("-std=c++17", "-x", "c++"),
-            session=session,
-            request_id=uuid.uuid4().hex,
-        )
+    response = get_type_info(
+        file_path=str(cpp_file),
+        line=8,
+        col=6,
+        build_path=None,
+        allowed_roots=(str(root),),
+        default_flags=("-std=c++17", "-x", "c++"),
+        session=session,
+        request_id=uuid.uuid4().hex,
     )
 
     assert "code" not in response, f"Unexpected error: {response}"

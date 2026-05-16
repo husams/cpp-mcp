@@ -39,3 +39,6 @@ htmlcov/
 # macOS
 .DS_Store
 .hypothesis/
+
+# Test repos for manual cpp-mcp validation
+test-repo/

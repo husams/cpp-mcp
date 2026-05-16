@@ -35,7 +35,7 @@ def call_path_traversal_file(
 
     @wrap_tool("cpp_get_definition")
     async def _call() -> dict[str, Any]:
-        return await get_definition(
+        return get_definition(
             file_path="../../etc/passwd",
             line=1,
             col=1,
@@ -60,7 +60,7 @@ def call_path_traversal_build(
 
     @wrap_tool("cpp_get_definition")
     async def _call() -> dict[str, Any]:
-        return await get_definition(
+        return get_definition(
             file_path=ctx["current_file"],
             line=1,
             col=1,
@@ -89,7 +89,7 @@ def call_get_ast_in_root(
 
     @wrap_tool("cpp_get_ast")
     async def _call() -> dict[str, Any]:
-        return await cpp_get_ast(
+        return cpp_get_ast(
             file_path=ctx["current_file"],
             allowed_roots=(str(tmp_allowed_root),),
             default_flags=default_flags,
@@ -121,7 +121,7 @@ def call_outside_allowed_root(
 
     @wrap_tool("cpp_get_definition")
     async def _call() -> dict[str, Any]:
-        return await get_definition(
+        return get_definition(
             file_path="/home/user/secret.cpp",
             line=1,
             col=1,

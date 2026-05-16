@@ -1,17 +1,20 @@
-"""BDD step implementations for transport_http feature (Story 7b / US-14).
+"""BDD step implementations for transport_http feature (Story S6 / US-M2).
 
-Spins up the HTTP transport in-process on a free port using uvicorn's
-programmatic API, waits for /healthz to respond, then exercises MCP
-initialization and tools/list over the streamable HTTP client.
+Starts the HTTP transport as a child subprocess using mcp.run(transport="http", ...),
+waits for /health to respond, then exercises MCP initialization and tools/list
+over the streamable HTTP transport.  Using a subprocess rather than a thread
+avoids os.environ contamination of other tests.
 """
 
 from __future__ import annotations
 
-import asyncio
 import os
 import socket
-import threading
+import subprocess
+import sys
 import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -32,19 +35,33 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
-def _wait_for_healthz(port: int, timeout: float = 10.0) -> None:
-    """Poll GET /healthz until it returns 200 or *timeout* expires."""
-    import urllib.error
-    import urllib.request
-
+def _wait_for_health(port: int, timeout: float = 15.0) -> None:
+    """Poll GET /health until it returns 200 or *timeout* expires."""
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         try:
-            with urllib.request.urlopen(f"http://127.0.0.1:{port}/healthz", timeout=1):
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=1):
                 return
         except (urllib.error.URLError, OSError):
             time.sleep(0.1)
     raise TimeoutError(f"HTTP server on port {port} did not start within {timeout}s")
+
+
+def _start_http_server_subprocess(root: str, port: int) -> subprocess.Popen[bytes]:
+    """Start FastMCP HTTP server as a child subprocess."""
+    env = {
+        **os.environ,
+        "CPP_MCP_ALLOWED_ROOTS": root,
+        "CPP_MCP_TRANSPORT": "http",
+        "CPP_MCP_HTTP_BIND": "127.0.0.1",
+        "CPP_MCP_HTTP_PORT": str(port),
+    }
+    return subprocess.Popen(
+        [sys.executable, "-m", "cpp_mcp"],
+        env=env,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -54,33 +71,22 @@ def _wait_for_healthz(port: int, timeout: float = 10.0) -> None:
 
 @given("the server is started in http mode on a free port")
 def start_http_server(tmp_path: Path, ctx: dict[str, Any]) -> None:
-    """Start the HTTP transport in a background thread and wait for readiness."""
+    """Start the HTTP transport as a subprocess and wait for readiness."""
     root = tmp_path / "projects"
     root.mkdir()
     port = _free_port()
     ctx["port"] = port
     ctx["allowed_root"] = str(root)
 
-    env = {**os.environ, "CPP_MCP_ALLOWED_ROOTS": str(root)}
-
-    def _run() -> None:
-        # Patch os.environ so load_config() picks up the allowed root.
-        old_env = dict(os.environ)
-        os.environ.update(env)
-        try:
-            from cpp_mcp.server.http_transport import run_http
-
-            asyncio.run(run_http(host="127.0.0.1", port=port))
-        finally:
-            os.environ.clear()
-            os.environ.update(old_env)
-
-    thread = threading.Thread(target=_run, daemon=True, name="http-server")
-    thread.start()
-    ctx["server_thread"] = thread
+    proc = _start_http_server_subprocess(str(root), port)
+    ctx["server_proc"] = proc
 
     # Wait until the server is actually accepting connections.
-    _wait_for_healthz(port)
+    try:
+        _wait_for_health(port)
+    except TimeoutError:
+        proc.terminate()
+        raise
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +97,8 @@ def start_http_server(tmp_path: Path, ctx: dict[str, Any]) -> None:
 @when("an MCP client initializes over the HTTP transport")
 def client_http_initialize(ctx: dict[str, Any]) -> None:
     """Connect with the MCP streamable-HTTP client and run initialize + list_tools."""
+    import asyncio
+
     from mcp import ClientSession
     from mcp.client.streamable_http import streamable_http_client
 
@@ -108,6 +116,23 @@ def client_http_initialize(ctx: dict[str, Any]) -> None:
             ctx["tools"] = [t.name for t in tools_result.tools]
 
     asyncio.run(_run())
+    # Terminate the server after use
+    proc: subprocess.Popen[bytes] = ctx.get("server_proc")  # type: ignore[assignment]
+    if proc is not None:
+        proc.terminate()
+
+
+@when('an HTTP GET request is sent to "/health"')
+def client_http_health(ctx: dict[str, Any]) -> None:
+    """Send a GET /health request and store the response."""
+    port = ctx["port"]
+    with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=5) as resp:
+        ctx["health_status"] = resp.status
+        ctx["health_body"] = resp.read().decode()
+    # Terminate the server after use
+    proc: subprocess.Popen[bytes] = ctx.get("server_proc")  # type: ignore[assignment]
+    if proc is not None:
+        proc.terminate()
 
 
 # ---------------------------------------------------------------------------
@@ -135,3 +160,17 @@ def assert_http_all_tools(ctx: dict[str, Any]) -> None:
     actual = set(ctx.get("tools", []))
     missing = expected - actual
     assert not missing, f"HTTP transport missing tools: {missing}. Got: {actual}"
+
+
+@then("the health response status is 200")
+def assert_health_status_200(ctx: dict[str, Any]) -> None:
+    assert ctx.get("health_status") == 200, (
+        f"Expected health status 200, got {ctx.get('health_status')}"
+    )
+
+
+@then('the health response body is "OK"')
+def assert_health_body_ok(ctx: dict[str, Any]) -> None:
+    assert ctx.get("health_body") == "OK", (
+        f"Expected health body 'OK', got {ctx.get('health_body')!r}"
+    )

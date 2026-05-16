@@ -26,18 +26,10 @@ def copy_tiny_stateless(tmp_allowed_root: Path, ctx: dict[str, Any]) -> None:
 
 @given("the app is built")
 def build_app_stateless(tmp_allowed_root: Path, ctx: dict[str, Any]) -> None:
-    from cpp_mcp.server.app import build_app
-    from cpp_mcp.server.config import load_config
+    from cpp_mcp.core.clang_session import ClangSession
 
-    config = load_config(
-        env={
-            "CPP_MCP_ALLOWED_ROOTS": str(tmp_allowed_root),
-            "CPP_MCP_CACHE_CAPACITY": "4",
-        }
-    )
-    server, session = build_app(config)
-    ctx["server"] = server
-    ctx["session"] = session
+    ctx["session"] = ClangSession(capacity=4)
+    ctx["allowed_roots"] = (str(tmp_allowed_root),)
 
 
 @requires_libclang
@@ -51,17 +43,15 @@ def call_no_build_path(
     from cpp_mcp.tools.get_definition import get_definition
 
     session = ClangSession(capacity=4)
-    result = asyncio.run(
-        get_definition(
-            file_path=ctx["current_file"],
-            line=1,
-            col=5,
-            build_path=None,
-            allowed_roots=(str(tmp_allowed_root),),
-            default_flags=default_flags,
-            session=session,
-            request_id="test-stateless-1",
-        )
+    result = get_definition(
+        file_path=ctx["current_file"],
+        line=1,
+        col=5,
+        build_path=None,
+        allowed_roots=(str(tmp_allowed_root),),
+        default_flags=default_flags,
+        session=session,
+        request_id="test-stateless-1",
     )
     ctx["result"] = result
 
@@ -80,17 +70,15 @@ def call_nonexistent_build_path(
     empty_build.mkdir(exist_ok=True)
 
     session = ClangSession(capacity=4)
-    result = asyncio.run(
-        get_definition(
-            file_path=ctx["current_file"],
-            line=1,
-            col=5,
-            build_path=str(empty_build),
-            allowed_roots=(str(tmp_allowed_root),),
-            default_flags=default_flags,
-            session=session,
-            request_id="test-stateless-2",
-        )
+    result = get_definition(
+        file_path=ctx["current_file"],
+        line=1,
+        col=5,
+        build_path=str(empty_build),
+        allowed_roots=(str(tmp_allowed_root),),
+        default_flags=default_flags,
+        session=session,
+        request_id="test-stateless-2",
     )
     ctx["result"] = result
 
@@ -104,15 +92,17 @@ def assert_flags_source_default(ctx: dict[str, Any]) -> None:
 
 @then('the app tool list does not contain a tool named "set_project_root"')
 def assert_no_set_project_root(ctx: dict[str, Any]) -> None:
-    from cpp_mcp.server.app import _TOOL_SPECS
+    from cpp_mcp.server.app import build_server
 
-    names = [name for name, _, _ in _TOOL_SPECS]
+    mcp = build_server()
+    names = [t.name for t in asyncio.run(mcp.list_tools())]
     assert "set_project_root" not in names, f"Unexpected: {names}"
 
 
 @then('the app tool list does not contain a tool named "set_build_path"')
 def assert_no_set_build_path(ctx: dict[str, Any]) -> None:
-    from cpp_mcp.server.app import _TOOL_SPECS
+    from cpp_mcp.server.app import build_server
 
-    names = [name for name, _, _ in _TOOL_SPECS]
+    mcp = build_server()
+    names = [t.name for t in asyncio.run(mcp.list_tools())]
     assert "set_build_path" not in names

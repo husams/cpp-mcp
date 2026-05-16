@@ -17,8 +17,6 @@ from pytest_bdd import given, scenarios, then, when
 from cpp_mcp.core.error_envelope import DBUnreachableError
 from cpp_mcp.graphdb.driver import EdgeRecord, GraphDriver, NodeRecord
 from cpp_mcp.graphdb.schema import NODE_FILE
-from cpp_mcp.server.app import build_app
-from cpp_mcp.server.config import ServerConfig
 
 scenarios("features/export_to_graphdb.feature")
 
@@ -65,20 +63,43 @@ _: GraphDriver = FakeGraphDriver()  # type: ignore[assignment]
 # ---------------------------------------------------------------------------
 
 
-def _invoke(ctx: dict[str, Any]) -> dict[str, Any]:
-    """Call the cpp_export_to_graphdb handler through the MCP server app."""
-    config = ServerConfig(
-        allowed_roots=ctx["allowed_roots"],
-        default_flags=("-std=c++17", "-I.", "-x", "c++"),
-        cache_capacity=4,
-        ast_max_nodes=5000,
-        ast_max_bytes=1024 * 1024,
+def _wrap_exc(exc: Exception, request_id: str = "bdd-test") -> dict[str, Any]:
+    """Convert a raised exception to an error-envelope dict (mirrors wrap_tool logic)."""
+    from cpp_mcp.core.error_envelope import (
+        DBUnreachableError,
+        DependencyMissingError,
+        ErrorCode,
+        FileNotFoundError_,
+        InvalidArgumentError,
+        PathViolationError,
+        build_error,
     )
-    _server, session = build_app(config)
 
-    import asyncio
+    code_map = [
+        (PathViolationError, ErrorCode.PATH_VIOLATION),
+        (InvalidArgumentError, ErrorCode.INVALID_ARGUMENT),
+        (DependencyMissingError, ErrorCode.DEPENDENCY_MISSING),
+        (DBUnreachableError, ErrorCode.DB_UNREACHABLE),
+        (FileNotFoundError, ErrorCode.FILE_NOT_FOUND),
+        (FileNotFoundError_, ErrorCode.FILE_NOT_FOUND),
+    ]
+    for exc_type, code in code_map:
+        if isinstance(exc, exc_type):
+            return build_error(code, str(exc), "cpp_export_to_graphdb", request_id)
+    return build_error(
+        ErrorCode.INTERNAL_ERROR,
+        "An internal error occurred.",
+        "cpp_export_to_graphdb",
+        request_id,
+    )
 
+
+def _invoke(ctx: dict[str, Any]) -> dict[str, Any]:
+    """Call the cpp_export_to_graphdb handler with select_driver patched to a fake."""
+    from cpp_mcp.core.clang_session import ClangSession
     from cpp_mcp.tools.export_to_graphdb import cpp_export_to_graphdb
+
+    session = ClangSession(capacity=4)
 
     kwargs: dict[str, Any] = {
         "file_path_or_dir": ctx.get("file_path_or_dir", ""),
@@ -93,43 +114,47 @@ def _invoke(ctx: dict[str, Any]) -> dict[str, Any]:
     fake_driver = ctx.get("fake_driver", FakeGraphDriver())
     ctx["fake_driver_instance"] = fake_driver
 
-    with patch("cpp_mcp.tools.export_to_graphdb.Neo4jDriver", return_value=fake_driver):
+    # Patch select_driver (the new dispatch point) to return the fake driver.
+    # This also prevents Neo4jDriver from being imported when neo4j is absent.
+    with patch("cpp_mcp.tools.export_to_graphdb.select_driver", return_value=fake_driver):
         try:
-            result = asyncio.run(cpp_export_to_graphdb(**kwargs))
+            result = cpp_export_to_graphdb(**kwargs)
         except Exception as exc:
-            # Wrap raw exceptions the same way wrap_tool would.
-            from cpp_mcp.core.error_envelope import (
-                DBUnreachableError,
-                ErrorCode,
-                FileNotFoundError_,
-                InvalidArgumentError,
-                PathViolationError,
-                build_error,
-            )
-
-            code_map = {
-                PathViolationError: ErrorCode.PATH_VIOLATION,
-                InvalidArgumentError: ErrorCode.INVALID_ARGUMENT,
-                DBUnreachableError: ErrorCode.DB_UNREACHABLE,
-                FileNotFoundError: ErrorCode.FILE_NOT_FOUND,
-                FileNotFoundError_: ErrorCode.FILE_NOT_FOUND,
-            }
-            for exc_type, code in code_map.items():
-                if isinstance(exc, exc_type):
-                    result = build_error(code, str(exc), "cpp_export_to_graphdb", "bdd-test")
-                    break
-            else:
-                from cpp_mcp.core.error_envelope import ErrorCode, build_error
-
-                result = build_error(
-                    ErrorCode.INTERNAL_ERROR,
-                    "An internal error occurred.",
-                    "cpp_export_to_graphdb",
-                    "bdd-test",
-                )
+            result = _wrap_exc(exc)
 
     ctx["result"] = result
-    session.shutdown(wait=False)
+    session.executor.shutdown(wait=False)
+    return result
+
+
+def _invoke_no_patch(ctx: dict[str, Any]) -> dict[str, Any]:
+    """Call the cpp_export_to_graphdb handler WITHOUT patching select_driver.
+
+    Used for unknown-scheme validation-order tests where the real dispatch
+    logic must run.
+    """
+    from cpp_mcp.core.clang_session import ClangSession
+    from cpp_mcp.tools.export_to_graphdb import cpp_export_to_graphdb
+
+    session = ClangSession(capacity=4)
+
+    kwargs: dict[str, Any] = {
+        "file_path_or_dir": ctx.get("file_path_or_dir", ""),
+        "build_path": ctx.get("build_path"),
+        "db_uri": ctx.get("db_uri", "bolt://localhost:7687"),
+        "allowed_roots": ctx["allowed_roots"],
+        "default_flags": ("-std=c++17", "-I.", "-x", "c++"),
+        "session": session,
+        "request_id": "bdd-test",
+    }
+
+    try:
+        result = cpp_export_to_graphdb(**kwargs)
+    except Exception as exc:
+        result = _wrap_exc(exc)
+
+    ctx["result"] = result
+    session.executor.shutdown(wait=False)
     return result
 
 
@@ -278,6 +303,20 @@ def when_export_empty_db_uri(ctx: dict[str, Any]) -> None:
     _invoke(ctx)
 
 
+@when("cpp_export_to_graphdb is called with traversal path and unknown scheme db_uri")
+def when_export_traversal_unknown_scheme(ctx: dict[str, Any]) -> None:
+    ctx["file_path_or_dir"] = "../../etc/passwd"
+    ctx["db_uri"] = "mysql://localhost:3306"
+    _invoke_no_patch(ctx)
+
+
+@when("cpp_export_to_graphdb is called with non-existent path and unknown scheme db_uri")
+def when_export_nonexistent_unknown_scheme(ctx: dict[str, Any]) -> None:
+    ctx["file_path_or_dir"] = str(ctx["root"] / "nonexistent_xyz.cpp")
+    ctx["db_uri"] = "surrealdb://localhost:8000"
+    _invoke_no_patch(ctx)
+
+
 # ---------------------------------------------------------------------------
 # Then steps
 # ---------------------------------------------------------------------------
@@ -393,3 +432,8 @@ def then_message_identifies_db_uri(ctx: dict[str, Any]) -> None:
 @then('the message identifies "build_path"')
 def then_message_identifies_build_path(ctx: dict[str, Any]) -> None:
     assert "build_path" in ctx["result"].get("message", ""), ctx["result"]
+
+
+@then('the response code is not "PATH_VIOLATION"')
+def then_not_path_violation(ctx: dict[str, Any]) -> None:
+    assert ctx["result"].get("code") != "PATH_VIOLATION", ctx["result"]

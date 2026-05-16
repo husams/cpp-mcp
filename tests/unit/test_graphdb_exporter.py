@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -80,7 +80,8 @@ def _make_session(
     session = MagicMock()
     if tu is None:
         tu = _fake_tu()
-    session.parse = AsyncMock(return_value=(tu, cache_hit))
+    # S3: tools call session._get_or_parse_sync() (sync) instead of session.parse()
+    session._get_or_parse_sync = MagicMock(return_value=(tu, cache_hit))
     return session
 
 
@@ -476,8 +477,7 @@ def test_references_edge_top_level_uses_file_usr(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_invalid_argument_missing_db_uri(tmp_path: Path) -> None:
+def test_invalid_argument_missing_db_uri(tmp_path: Path) -> None:
     root = tmp_path / "projects"
     root.mkdir()
     build = root / "build"
@@ -486,7 +486,7 @@ async def test_invalid_argument_missing_db_uri(tmp_path: Path) -> None:
     target.write_text("")
 
     with pytest.raises(InvalidArgumentError, match="db_uri"):
-        await cpp_export_to_graphdb(
+        cpp_export_to_graphdb(
             file_path_or_dir=str(target),
             build_path=str(build),
             db_uri=None,
@@ -497,8 +497,7 @@ async def test_invalid_argument_missing_db_uri(tmp_path: Path) -> None:
         )
 
 
-@pytest.mark.asyncio
-async def test_invalid_argument_empty_db_uri(tmp_path: Path) -> None:
+def test_invalid_argument_empty_db_uri(tmp_path: Path) -> None:
     root = tmp_path / "projects"
     root.mkdir()
     build = root / "build"
@@ -507,7 +506,7 @@ async def test_invalid_argument_empty_db_uri(tmp_path: Path) -> None:
     target.write_text("")
 
     with pytest.raises(InvalidArgumentError, match="db_uri"):
-        await cpp_export_to_graphdb(
+        cpp_export_to_graphdb(
             file_path_or_dir=str(target),
             build_path=str(build),
             db_uri="",
@@ -518,15 +517,14 @@ async def test_invalid_argument_empty_db_uri(tmp_path: Path) -> None:
         )
 
 
-@pytest.mark.asyncio
-async def test_invalid_argument_missing_build_path(tmp_path: Path) -> None:
+def test_invalid_argument_missing_build_path(tmp_path: Path) -> None:
     root = tmp_path / "projects"
     root.mkdir()
     target = root / "main.cpp"
     target.write_text("")
 
     with pytest.raises(InvalidArgumentError, match="build_path"):
-        await cpp_export_to_graphdb(
+        cpp_export_to_graphdb(
             file_path_or_dir=str(target),
             build_path=None,
             db_uri="bolt://localhost:7687",
@@ -542,8 +540,7 @@ async def test_invalid_argument_missing_build_path(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_db_unreachable(tmp_path: Path) -> None:
+def test_db_unreachable(tmp_path: Path) -> None:
     root = tmp_path / "projects"
     root.mkdir()
     build = root / "build"
@@ -554,10 +551,10 @@ async def test_db_unreachable(tmp_path: Path) -> None:
     fake = FakeGraphDriver(fail_on_connect=True)
 
     with (
-        patch("cpp_mcp.tools.export_to_graphdb.Neo4jDriver", return_value=fake),
+        patch("cpp_mcp.tools.export_to_graphdb.select_driver", return_value=fake),
         pytest.raises(DBUnreachableError),
     ):
-        await cpp_export_to_graphdb(
+        cpp_export_to_graphdb(
             file_path_or_dir=str(target),
             build_path=str(build),
             db_uri="bolt://unreachable:7687",
@@ -573,8 +570,7 @@ async def test_db_unreachable(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_happy_path_single_file(tmp_path: Path) -> None:
+def test_happy_path_single_file(tmp_path: Path) -> None:
     root = tmp_path / "projects"
     root.mkdir()
     build = root / "build"
@@ -585,8 +581,8 @@ async def test_happy_path_single_file(tmp_path: Path) -> None:
     fake = FakeGraphDriver()
     session = _make_session()
 
-    with patch("cpp_mcp.tools.export_to_graphdb.Neo4jDriver", return_value=fake):
-        result = await cpp_export_to_graphdb(
+    with patch("cpp_mcp.tools.export_to_graphdb.select_driver", return_value=fake):
+        result = cpp_export_to_graphdb(
             file_path_or_dir=str(target),
             build_path=str(build),
             db_uri="bolt://localhost:7687",
@@ -606,8 +602,7 @@ async def test_happy_path_single_file(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_partial_failure_continues(tmp_path: Path) -> None:
+def test_partial_failure_continues(tmp_path: Path) -> None:
     root = tmp_path / "projects"
     root.mkdir()
     build = root / "build"
@@ -622,7 +617,7 @@ async def test_partial_failure_continues(tmp_path: Path) -> None:
 
     call_count = 0
 
-    async def fake_parse(file_path: Path, bp: Any, flags: Any, options: int = 0) -> Any:
+    def fake_get_or_parse_sync(file_path: Path, bp: Any, flags: Any, options: int = 0) -> Any:
         nonlocal call_count
         call_count += 1
         if file_path.name == "bad.cpp":
@@ -630,12 +625,12 @@ async def test_partial_failure_continues(tmp_path: Path) -> None:
         return (_fake_tu(), False)
 
     session = MagicMock()
-    session.parse = fake_parse
+    session._get_or_parse_sync = fake_get_or_parse_sync
 
     fake = FakeGraphDriver()
 
-    with patch("cpp_mcp.tools.export_to_graphdb.Neo4jDriver", return_value=fake):
-        result = await cpp_export_to_graphdb(
+    with patch("cpp_mcp.tools.export_to_graphdb.select_driver", return_value=fake):
+        result = cpp_export_to_graphdb(
             file_path_or_dir=str(root),
             build_path=str(build),
             db_uri="bolt://localhost:7687",
@@ -655,8 +650,7 @@ async def test_partial_failure_continues(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
-async def test_source_files_unchanged(tmp_path: Path) -> None:
+def test_source_files_unchanged(tmp_path: Path) -> None:
     root = tmp_path / "projects"
     root.mkdir()
     build = root / "build"
@@ -670,8 +664,8 @@ async def test_source_files_unchanged(tmp_path: Path) -> None:
     fake = FakeGraphDriver()
     session = _make_session()
 
-    with patch("cpp_mcp.tools.export_to_graphdb.Neo4jDriver", return_value=fake):
-        await cpp_export_to_graphdb(
+    with patch("cpp_mcp.tools.export_to_graphdb.select_driver", return_value=fake):
+        cpp_export_to_graphdb(
             file_path_or_dir=str(target),
             build_path=str(build),
             db_uri="bolt://localhost:7687",

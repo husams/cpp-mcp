@@ -40,42 +40,35 @@ def _fixture_exists_hi(name: str, ctx: dict[str, Any]) -> None:
 
 @when(parsers.parse('cpp_get_header_info is called on "{name}"'))
 def _call_hi(name: str, clang_session: Any, ctx: dict[str, Any]) -> None:
-    import asyncio
 
     from cpp_mcp.tools.get_header_info import cpp_get_header_info
 
     file_path = str(ctx["root"] / name)
-    ctx["response"] = asyncio.run(
-        cpp_get_header_info(
-            file_path=file_path,
-            allowed_roots=ctx["allowed_roots"],
-            default_flags=ctx["default_flags"],
-            session=clang_session,
-        )
+    ctx["response"] = cpp_get_header_info(
+        file_path=file_path,
+        allowed_roots=ctx["allowed_roots"],
+        default_flags=ctx["default_flags"],
+        session=clang_session,
     )
 
 
 @when(parsers.parse('cpp_get_header_info is called on "{name}" with no build_path'))
 def _call_hi_no_build(name: str, clang_session: Any, ctx: dict[str, Any]) -> None:
-    import asyncio
 
     from cpp_mcp.tools.get_header_info import cpp_get_header_info
 
     file_path = str(ctx["root"] / name)
-    ctx["response"] = asyncio.run(
-        cpp_get_header_info(
-            file_path=file_path,
-            allowed_roots=ctx["allowed_roots"],
-            default_flags=ctx["default_flags"],
-            session=clang_session,
-            build_path=None,
-        )
+    ctx["response"] = cpp_get_header_info(
+        file_path=file_path,
+        allowed_roots=ctx["allowed_roots"],
+        default_flags=ctx["default_flags"],
+        session=clang_session,
+        build_path=None,
     )
 
 
 @when("cpp_get_header_info is called on a non-existent file")
 def _call_hi_nonexistent(ctx: dict[str, Any]) -> None:
-    import asyncio
 
     from cpp_mcp.core.error_envelope import ErrorCode, FileNotFoundError_, build_error
     from cpp_mcp.tools.get_header_info import cpp_get_header_info
@@ -87,13 +80,11 @@ def _call_hi_nonexistent(ctx: dict[str, Any]) -> None:
             raise RuntimeError("should not be called")
 
     try:
-        result = asyncio.run(
-            cpp_get_header_info(
-                file_path=file_path,
-                allowed_roots=ctx["allowed_roots"],
-                default_flags=ctx["default_flags"],
-                session=_FakeSession(),
-            )
+        result = cpp_get_header_info(
+            file_path=file_path,
+            allowed_roots=ctx["allowed_roots"],
+            default_flags=ctx["default_flags"],
+            session=_FakeSession(),
         )
         ctx["response"] = result
     except (FileNotFoundError, FileNotFoundError_) as exc:
@@ -104,7 +95,6 @@ def _call_hi_nonexistent(ctx: dict[str, Any]) -> None:
 
 @when(parsers.parse('cpp_get_header_info is called with file_path "{raw_path}"'))
 def _call_hi_path_traversal(raw_path: str, ctx: dict[str, Any]) -> None:
-    import asyncio
 
     from cpp_mcp.core.error_envelope import ErrorCode, PathViolationError, build_error
     from cpp_mcp.tools.get_header_info import cpp_get_header_info
@@ -114,13 +104,11 @@ def _call_hi_path_traversal(raw_path: str, ctx: dict[str, Any]) -> None:
             raise RuntimeError("should not be called")
 
     try:
-        result = asyncio.run(
-            cpp_get_header_info(
-                file_path=raw_path,
-                allowed_roots=ctx["allowed_roots"],
-                default_flags=ctx["default_flags"],
-                session=_FakeSession(),
-            )
+        result = cpp_get_header_info(
+            file_path=raw_path,
+            allowed_roots=ctx["allowed_roots"],
+            default_flags=ctx["default_flags"],
+            session=_FakeSession(),
         )
         ctx["response"] = result
     except PathViolationError as exc:

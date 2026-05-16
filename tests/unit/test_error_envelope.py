@@ -39,13 +39,14 @@ EXPECTED_CODES = {
     "INVALID_ARGUMENT",
     "PATH_VIOLATION",
     "DB_UNREACHABLE",
+    "DEPENDENCY_MISSING",
     "PARSE_ERROR",
     "INTERNAL_ERROR",
 }
 
 
 def test_error_code_count() -> None:
-    assert len(ErrorCode) == 8
+    assert len(ErrorCode) == 9
 
 
 def test_all_expected_codes_present() -> None:

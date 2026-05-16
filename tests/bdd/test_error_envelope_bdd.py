@@ -37,7 +37,7 @@ def call_via_app_path_traversal(ctx: dict[str, Any], default_flags: tuple[str, .
 
     @wrap_tool("cpp_get_definition")
     async def _call() -> dict[str, Any]:
-        return await get_definition(
+        return get_definition(
             file_path="../../etc/passwd",
             line=1,
             col=1,

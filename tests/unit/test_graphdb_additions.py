@@ -31,7 +31,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from cpp_mcp.core.error_envelope import DBUnreachableError
+from cpp_mcp.core.error_envelope import DBUnreachableError, DependencyMissingError
 from cpp_mcp.graphdb.driver import EdgeRecord, GraphDriver, NodeRecord
 from cpp_mcp.graphdb.neo4j_driver import Neo4jDriver
 from cpp_mcp.graphdb.schema import (
@@ -302,10 +302,15 @@ def _find_free_port() -> int:
 
 
 def test_db_unreachable_closed_port() -> None:
-    """Neo4jDriver.connect() raises DBUnreachableError on a refused TCP port (SC-US-7-2).
+    """Neo4jDriver.connect() raises a domain error on a refused TCP port (SC-US-7-2).
 
     Finds a free port, does NOT start a listener, then calls connect() against
     it.  No mocking of the network path.
+
+    When the ``neo4j`` package is not installed, ``DependencyMissingError`` fires
+    before any TCP connection attempt (ADR-13 / S1).  When the package is installed
+    but the port is closed, ``DBUnreachableError`` fires.  Either is acceptable here
+    because the test environment may or may not have ``neo4j`` installed.
     """
     port = _find_free_port()
     # Verify the port is indeed closed before we try to connect.
@@ -315,7 +320,7 @@ def test_db_unreachable_closed_port() -> None:
     assert result != 0, "Port unexpectedly open — cannot run closed-port test"
 
     driver = Neo4jDriver()
-    with pytest.raises(DBUnreachableError):
+    with pytest.raises((DependencyMissingError, DBUnreachableError)):
         driver.connect(f"bolt://127.0.0.1:{port}")
 
 

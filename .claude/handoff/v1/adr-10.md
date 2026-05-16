@@ -1,5 +1,5 @@
 # ADR-10: Transport — official MCP Python SDK; stdio + HTTP loopback only; no auth v1
-Status: accepted
+Status: superseded by ADR-11
 Context:
   - US-14 requires both stdio (P0) and HTTP (P1) transports with identical tool surface.
   - OQ-17: should HTTP transport require authentication in v1?

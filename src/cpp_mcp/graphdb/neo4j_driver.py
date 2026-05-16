@@ -18,7 +18,7 @@ import contextlib
 import logging
 from typing import Any
 
-from cpp_mcp.core.error_envelope import DBUnreachableError
+from cpp_mcp.core.error_envelope import DBUnreachableError, DependencyMissingError
 from cpp_mcp.graphdb.driver import EdgeRecord, NodeRecord
 
 logger = logging.getLogger(__name__)
@@ -43,14 +43,16 @@ class Neo4jDriver:
                 constructor (e.g. ``auth=("neo4j", "password")``).
 
         Raises:
+            :exc:`DependencyMissingError`: when the ``neo4j`` package is not installed.
             :exc:`DBUnreachableError`: wraps any neo4j connectivity exception.
         """
         try:
             # Lazy import — only required when graphdb extra is installed.
             import neo4j  # type: ignore[import-not-found]
         except ImportError as exc:
-            raise DBUnreachableError(
-                "neo4j Python driver is not installed. Install with: pip install cpp-mcp[graphdb]"
+            raise DependencyMissingError(
+                "neo4j Python driver is not installed. "
+                'Install with: pip install "cpp-mcp[graphdb-neo4j]"'
             ) from exc
 
         try:
