@@ -1,0 +1,7 @@
+[
+  {
+    "directory": "/projects/build",
+    "command": "clang++ -std=c++17 -DDEBUG /projects/src/main.cpp",
+    "file": "/projects/src/main.cpp"
+  }
+]

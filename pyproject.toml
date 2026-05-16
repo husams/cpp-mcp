@@ -1,0 +1,147 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cpp-mcp"
+version = "0.1.0"
+description = "C++ Semantic Analysis MCP Server"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.0",
+    "clang>=17,<20",
+]
+
+[project.optional-dependencies]
+graphdb = [
+    "neo4j>=5.0",
+]
+http = [
+    "uvicorn>=0.20",
+]
+dev = [
+    "ruff",
+    "mypy",
+    "pytest",
+    "pytest-bdd",
+    "pytest-asyncio",
+    "pytest-cov",
+]
+
+[project.scripts]
+cpp-mcp = "cpp_mcp.server.stdio_transport:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cpp_mcp"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+strict = true
+packages = ["cpp_mcp"]
+
+[[tool.mypy.overrides]]
+module = "clang.*"
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+asyncio_mode = "auto"
+markers = [
+    "libclang: requires system libclang",
+    "neo4j: requires NEO4J_TEST_URI",
+    "SC_US_1_1: Story 5 US-1 scenario 1",
+    "SC_US_1_5: Story 5 US-1 scenario 5",
+    "SC_US_1_6: Story 5 US-1 scenario 6",
+    "SC_US_1_7: Story 5 US-1 scenario 7",
+    "SC_US_1_9: Story 5 US-1 scenario 9",
+    "SC_US_1_10: Story 5 US-1 scenario 10",
+    "SC_US_1_11: Story 5 US-1 scenario 11",
+    "SC_US_1_14: Story 5 US-1 scenario 14",
+    "SC_US_2_1: Story 5 US-2 scenario 1",
+    "SC_US_2_2: Story 5 US-2 scenario 2",
+    "SC_US_2_4: Story 5 US-2 scenario 4",
+    "SC_US_2_5: Story 5 US-2 scenario 5",
+    "SC_US_2_6: Story 5 US-2 scenario 6",
+    "SC_US_3_1: Story 5 US-3 scenario 1",
+    "SC_US_3_2: Story 5 US-3 scenario 2",
+    "SC_US_3_3: Story 5 US-3 scenario 3",
+    "SC_US_3_4: Story 5 US-3 scenario 4",
+    "SC_US_3_6: Story 5 US-3 scenario 6",
+    "SC_US_3_7: Story 5 US-3 scenario 7",
+    "SC_US_3_8: Story 5 US-3 scenario 8",
+    # Story 6 — ast-and-structural-tools (SC_US_4, SC_US_5, SC_US_6)
+    "SC_US_4_1: Story 6 US-4 scenario 1",
+    "SC_US_4_2: Story 6 US-4 scenario 2",
+    "SC_US_4_3: Story 6 US-4 scenario 3",
+    "SC_US_4_4: Story 6 US-4 scenario 4",
+    "SC_US_4_5: Story 6 US-4 scenario 5",
+    "SC_US_4_6: Story 6 US-4 scenario 6",
+    "SC_US_4_7: Story 6 US-4 scenario 7",
+    "SC_US_4_8: Story 6 US-4 scenario 8",
+    "SC_US_4_9: Story 6 US-4 scenario 9",
+    "SC_US_4_10: Story 6 US-4 scenario 10",
+    "SC_US_5_1: Story 6 US-5 scenario 1",
+    "SC_US_5_2: Story 6 US-5 scenario 2",
+    "SC_US_5_3: Story 6 US-5 scenario 3",
+    "SC_US_5_4: Story 6 US-5 scenario 4",
+    "SC_US_5_5: Story 6 US-5 scenario 5",
+    "SC_US_5_6: Story 6 US-5 scenario 6",
+    "SC_US_5_7: Story 6 US-5 scenario 7",
+    "SC_US_6_1: Story 6 US-6 scenario 1",
+    "SC_US_6_2: Story 6 US-6 scenario 2",
+    "SC_US_6_3: Story 6 US-6 scenario 3",
+    "SC_US_6_4: Story 6 US-6 scenario 4",
+    "SC_US_6_5: Story 6 US-6 scenario 5",
+    "SC_US_6_6: Story 6 US-6 scenario 6",
+    "SC_US_6_7: Story 6 US-6 scenario 7",
+    # Story 7 — mcp-server-transport (SC_US_8 … SC_US_14)
+    "SC_US_8_1: Story 7 US-8 scenario 1",
+    "SC_US_8_4: Story 7 US-8 scenario 4",
+    "SC_US_9_1: Story 7 US-9 scenario 1",
+    "SC_US_9_2: Story 7 US-9 scenario 2",
+    "SC_US_9_4: Story 7 US-9 scenario 4",
+    "SC_US_10_1: Story 7 US-10 scenario 1",
+    "SC_US_10_2: Story 7 US-10 scenario 2",
+    "SC_US_10_4: Story 7 US-10 scenario 4",
+    "SC_US_10_6: Story 7 US-10 scenario 6",
+    "SC_US_11_1: Story 7 US-11 scenario 1",
+    "SC_US_11_3: Story 7 US-11 scenario 3",
+    "SC_US_12_1: Story 7 US-12 scenario 1",
+    "SC_US_12_2: Story 7 US-12 scenario 2",
+    "SC_US_12_4: Story 7 US-12 scenario 4",
+    "SC_US_12_5: Story 7 US-12 scenario 5",
+    "SC_US_12_6: Story 7 US-12 scenario 6",
+    "SC_US_13_1: Story 7 US-13 scenario 1",
+    "SC_US_13_2: Story 7 US-13 scenario 2",
+    "SC_US_13_3: Story 7 US-13 scenario 3",
+    "SC_US_14_1: Story 7 US-14 scenario 1",
+    "SC_US_14_2: Story 7b US-14 scenario 2 — HTTP transport",
+    "SC_US_14_3: Story 7 US-14 scenario 3",
+    "SC_US_14_4: Story 7 US-14 scenario 4",
+    # followup — Cognee GraphDriver (ADR-7 deferred)
+    "cognee: requires COGNEE_BASE_URL",
+    # Story 8 — graphdb-exporter (SC_US_7_*)
+    "SC_US_7_1: Story 8 US-7 scenario 1",
+    "SC_US_7_2: Story 8 US-7 scenario 2",
+    "SC_US_7_3: Story 8 US-7 scenario 3",
+    "SC_US_7_4: Story 8 US-7 scenario 4",
+    "SC_US_7_5: Story 8 US-7 scenario 5",
+    "SC_US_7_6: Story 8 US-7 scenario 6",
+    "SC_US_7_7: Story 8 US-7 scenario 7",
+    "SC_US_7_8: Story 8 US-7 scenario 8",
+    "SC_US_7_9: Story 8 US-7 scenario 9",
+    "SC_US_7_10: Story 8 US-7 scenario 10",
+    "SC_US_7_11: Story 8 US-7 scenario 11",
+]
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.152.7",
+]
