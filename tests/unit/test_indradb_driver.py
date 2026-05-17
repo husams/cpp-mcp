@@ -343,7 +343,8 @@ class TestRoundTrip:
 
         vid = uuid.uuid5(NS_CPPMCP_USR, "c:@C@Foo")
         vertex = driver._client._vertices[vid]
-        assert vertex.t.name == "Class"
+        # After v4-S1 patch, driver passes plain str for vertex type (not Identifier)
+        assert vertex.t == "Class"
 
     def test_props_stored_on_vertex(self, fake_driver: Any) -> None:
         driver, _ = fake_driver

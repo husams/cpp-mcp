@@ -26,6 +26,16 @@ from typing import Any
 from uuid import UUID
 
 
+def _type_name(t: "Identifier | str") -> str:
+    """Normalise an edge/vertex type to a plain str.
+
+    The real indradb 3.x Client accepts plain str for Vertex.t and Edge.t;
+    fake_indradb must handle both to stay compat with drivers that pass str
+    (post-v4-S1 patch) and legacy tests that still construct Identifier().
+    """
+    return t.name if isinstance(t, Identifier) else t
+
+
 class Identifier:
     """Fake IndraDB Identifier (a named type/label string)."""
 
@@ -43,26 +53,30 @@ class Identifier:
 
 
 class Vertex:
-    """Fake IndraDB Vertex (id: UUID, t: Identifier)."""
+    """Fake IndraDB Vertex (id: UUID, t: Identifier | str)."""
 
-    def __init__(self, id: UUID, t: Identifier) -> None:
+    def __init__(self, id: UUID, t: "Identifier | str") -> None:
         self.id = id
         self.t = t
 
     def __eq__(self, other: object) -> bool:
-        return isinstance(other, Vertex) and self.id == other.id and self.t == other.t
+        return (
+            isinstance(other, Vertex)
+            and self.id == other.id
+            and _type_name(self.t) == _type_name(other.t)
+        )
 
     def __hash__(self) -> int:
-        return hash((self.id, self.t.name))
+        return hash((self.id, _type_name(self.t)))
 
     def __repr__(self) -> str:
         return f"Vertex({self.id!r}, {self.t!r})"
 
 
 class Edge:
-    """Fake IndraDB Edge (outbound_id: UUID, t: Identifier, inbound_id: UUID)."""
+    """Fake IndraDB Edge (outbound_id: UUID, t: Identifier | str, inbound_id: UUID)."""
 
-    def __init__(self, outbound_id: UUID, t: Identifier, inbound_id: UUID) -> None:
+    def __init__(self, outbound_id: UUID, t: "Identifier | str", inbound_id: UUID) -> None:
         self.outbound_id = outbound_id
         self.t = t
         self.inbound_id = inbound_id
@@ -71,12 +85,12 @@ class Edge:
         return (
             isinstance(other, Edge)
             and self.outbound_id == other.outbound_id
-            and self.t == other.t
+            and _type_name(self.t) == _type_name(other.t)
             and self.inbound_id == other.inbound_id
         )
 
     def __hash__(self) -> int:
-        return hash((self.outbound_id, self.t.name, self.inbound_id))
+        return hash((self.outbound_id, _type_name(self.t), self.inbound_id))
 
     def __repr__(self) -> str:
         return f"Edge({self.outbound_id!r}, {self.t!r}, {self.inbound_id!r})"
@@ -166,7 +180,11 @@ class Client:
             props = self._vertex_props.setdefault(query.vid, {})
             props[name] = value
         elif isinstance(query, SpecificEdgeQuery):
-            edge_key = (query.edge.outbound_id, query.edge.t.name, query.edge.inbound_id)
+            edge_key = (
+                query.edge.outbound_id,
+                _type_name(query.edge.t),
+                query.edge.inbound_id,
+            )
             props = self._edge_props.setdefault(edge_key, {})
             props[name] = value
 

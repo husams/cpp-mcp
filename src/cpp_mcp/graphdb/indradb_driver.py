@@ -5,9 +5,9 @@ This module imports it lazily inside :meth:`IndraDBDriver.connect` so that the
 rest of the server starts without it installed (C-G5).
 
 Idempotency strategy (ADR-14, ADR-7):
-  - Nodes: ``create_vertex(Vertex(uuid5(NS_CPPMCP_USR, usr), Identifier(label)))``
+  - Nodes: ``create_vertex(Vertex(uuid5(NS_CPPMCP_USR, usr), label))``
     — IndraDB's create_vertex is a no-op on existing identical record.
-  - Edges: ``create_edge(Edge(src_uuid, Identifier(edge_type), tgt_uuid))``
+  - Edges: ``create_edge(Edge(src_uuid, edge_type, tgt_uuid))``
     — keyed by (outbound, type, inbound); repeated call is a no-op.
 
 Property serialisation follows ADR-15: JSON scalars pass through; non-scalars
@@ -102,7 +102,7 @@ class IndraDBDriver:
             :exc:`DBUnreachableError`: wraps any IndraDB connectivity exception.
         """
         try:
-            import indradb  # type: ignore[import-not-found]  # lazy — optional dep
+            import indradb  # type: ignore[import-untyped]  # lazy — optional dep; no stubs
         except ImportError as exc:
             raise DependencyMissingError(
                 "indradb Python driver is not installed. "
@@ -140,8 +140,7 @@ class IndraDBDriver:
             usr = rec["usr"]
             label = rec["label"]
             vid = uuid.uuid5(NS_CPPMCP_USR, usr)
-            vtype = indradb.Identifier(label)
-            self._client.create_vertex(indradb.Vertex(vid, vtype))
+            self._client.create_vertex(indradb.Vertex(vid, label))
             props: dict[str, Any] = dict(rec["props"])
             props["usr"] = usr
             for key, value in props.items():
@@ -175,8 +174,7 @@ class IndraDBDriver:
         for rec in batch:
             src_vid = uuid.uuid5(NS_CPPMCP_USR, rec["source_usr"])
             tgt_vid = uuid.uuid5(NS_CPPMCP_USR, rec["target_usr"])
-            etype = indradb.Identifier(rec["edge_type"])
-            edge = indradb.Edge(outbound_id=src_vid, t=etype, inbound_id=tgt_vid)
+            edge = indradb.Edge(outbound_id=src_vid, t=rec["edge_type"], inbound_id=tgt_vid)
             self._client.create_edge(edge)
             for key, value in rec["props"].items():
                 norm = _normalise_prop(key, value)

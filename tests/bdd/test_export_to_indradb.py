@@ -398,7 +398,8 @@ def then_no_errors(ctx: dict[str, Any]) -> None:
 def then_file_node_type(ctx: dict[str, Any]) -> None:
     client = ctx.get("last_fake_client")
     if client is not None:
-        labels = {v.t.name for v in client._vertices.values()}
+        # v4-S1: driver now passes plain str for vertex type; handle both Identifier and str
+        labels = {v.t.name if hasattr(v.t, "name") else v.t for v in client._vertices.values()}
         assert NODE_FILE in labels, f"Expected {NODE_FILE!r} in {labels}"
     else:
         # Live test or idempotency path — trust files_processed as evidence.
