@@ -1,6 +1,6 @@
-"""BDD tests for cpp_get_preprocessor_state (Story 6, US-6).
+"""BDD tests for get_preprocessor_state (Story 6, US-6).
 
-pytest-bdd step definitions for tests/bdd/features/cpp_get_preprocessor_state.feature.
+pytest-bdd step definitions for tests/bdd/features/get_preprocessor_state.feature.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from pytest_bdd import given, parsers, scenarios, then, when
 
 from tests.bdd.conftest import copy_fixture, make_nonexistent_path
 
-scenarios("features/cpp_get_preprocessor_state.feature")
+scenarios("features/get_preprocessor_state.feature")
 
 # ---------------------------------------------------------------------------
 # Given steps
@@ -38,13 +38,13 @@ def _fixture_exists_pp(name: str, ctx: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
-@when(parsers.parse('cpp_get_preprocessor_state is called on "{name}"'))
+@when(parsers.parse('get_preprocessor_state is called on "{name}"'))
 def _call_pp(name: str, clang_session: Any, ctx: dict[str, Any]) -> None:
 
-    from cpp_mcp.tools.get_preprocessor_state import cpp_get_preprocessor_state
+    from cpp_mcp.tools.get_preprocessor_state import get_preprocessor_state
 
     file_path = str(ctx["root"] / name)
-    ctx["response"] = cpp_get_preprocessor_state(
+    ctx["response"] = get_preprocessor_state(
         file_path=file_path,
         allowed_roots=ctx["allowed_roots"],
         default_flags=ctx["default_flags"],
@@ -53,17 +53,15 @@ def _call_pp(name: str, clang_session: Any, ctx: dict[str, Any]) -> None:
 
 
 @when(
-    parsers.parse(
-        'cpp_get_preprocessor_state is called on "{name}" with flags including "-DDEBUG=1"'
-    )
+    parsers.parse('get_preprocessor_state is called on "{name}" with flags including "-DDEBUG=1"')
 )
 def _call_pp_debug(name: str, clang_session: Any, ctx: dict[str, Any]) -> None:
 
-    from cpp_mcp.tools.get_preprocessor_state import cpp_get_preprocessor_state
+    from cpp_mcp.tools.get_preprocessor_state import get_preprocessor_state
 
     file_path = str(ctx["root"] / name)
     flags = ctx["default_flags"] + ("-DDEBUG=1",)
-    ctx["response"] = cpp_get_preprocessor_state(
+    ctx["response"] = get_preprocessor_state(
         file_path=file_path,
         allowed_roots=ctx["allowed_roots"],
         default_flags=flags,
@@ -71,13 +69,13 @@ def _call_pp_debug(name: str, clang_session: Any, ctx: dict[str, Any]) -> None:
     )
 
 
-@when(parsers.parse('cpp_get_preprocessor_state is called on "{name}" with no build_path'))
+@when(parsers.parse('get_preprocessor_state is called on "{name}" with no build_path'))
 def _call_pp_no_build(name: str, clang_session: Any, ctx: dict[str, Any]) -> None:
 
-    from cpp_mcp.tools.get_preprocessor_state import cpp_get_preprocessor_state
+    from cpp_mcp.tools.get_preprocessor_state import get_preprocessor_state
 
     file_path = str(ctx["root"] / name)
-    ctx["response"] = cpp_get_preprocessor_state(
+    ctx["response"] = get_preprocessor_state(
         file_path=file_path,
         allowed_roots=ctx["allowed_roots"],
         default_flags=ctx["default_flags"],
@@ -86,11 +84,11 @@ def _call_pp_no_build(name: str, clang_session: Any, ctx: dict[str, Any]) -> Non
     )
 
 
-@when("cpp_get_preprocessor_state is called on a non-existent file")
+@when("get_preprocessor_state is called on a non-existent file")
 def _call_pp_nonexistent(ctx: dict[str, Any]) -> None:
 
     from cpp_mcp.core.error_envelope import ErrorCode, FileNotFoundError_, build_error
-    from cpp_mcp.tools.get_preprocessor_state import cpp_get_preprocessor_state
+    from cpp_mcp.tools.get_preprocessor_state import get_preprocessor_state
 
     file_path = make_nonexistent_path(ctx["root"])
 
@@ -99,7 +97,7 @@ def _call_pp_nonexistent(ctx: dict[str, Any]) -> None:
             raise RuntimeError("should not be called")
 
     try:
-        result = cpp_get_preprocessor_state(
+        result = get_preprocessor_state(
             file_path=file_path,
             allowed_roots=ctx["allowed_roots"],
             default_flags=ctx["default_flags"],
@@ -108,22 +106,22 @@ def _call_pp_nonexistent(ctx: dict[str, Any]) -> None:
         ctx["response"] = result
     except (FileNotFoundError, FileNotFoundError_) as exc:
         ctx["response"] = build_error(
-            ErrorCode.FILE_NOT_FOUND, str(exc), "cpp_get_preprocessor_state", "test"
+            ErrorCode.FILE_NOT_FOUND, str(exc), "get_preprocessor_state", "test"
         )
 
 
-@when(parsers.parse('cpp_get_preprocessor_state is called with file_path "{raw_path}"'))
+@when(parsers.parse('get_preprocessor_state is called with file_path "{raw_path}"'))
 def _call_pp_traversal(raw_path: str, ctx: dict[str, Any]) -> None:
 
     from cpp_mcp.core.error_envelope import ErrorCode, PathViolationError, build_error
-    from cpp_mcp.tools.get_preprocessor_state import cpp_get_preprocessor_state
+    from cpp_mcp.tools.get_preprocessor_state import get_preprocessor_state
 
     class _FakeSession:
         async def parse(self, *a: Any, **kw: Any) -> Any:  # pragma: no cover
             raise RuntimeError("should not be called")
 
     try:
-        result = cpp_get_preprocessor_state(
+        result = get_preprocessor_state(
             file_path=raw_path,
             allowed_roots=ctx["allowed_roots"],
             default_flags=ctx["default_flags"],
@@ -132,7 +130,7 @@ def _call_pp_traversal(raw_path: str, ctx: dict[str, Any]) -> None:
         ctx["response"] = result
     except PathViolationError as exc:
         ctx["response"] = build_error(
-            ErrorCode.PATH_VIOLATION, str(exc), "cpp_get_preprocessor_state", "test"
+            ErrorCode.PATH_VIOLATION, str(exc), "get_preprocessor_state", "test"
         )
 
 

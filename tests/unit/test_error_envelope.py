@@ -69,13 +69,13 @@ def test_build_error_shape() -> None:
     envelope = build_error(
         ErrorCode.FILE_NOT_FOUND,
         "The file /projects/src/main.cpp was not found.",
-        "cpp_get_definition",
+        "get_definition",
         "abc123",
         echo=("/projects/src/main.cpp",),
     )
     assert set(envelope.keys()) == {"code", "message", "tool", "request_id"}
     assert envelope["code"] == "FILE_NOT_FOUND"
-    assert envelope["tool"] == "cpp_get_definition"
+    assert envelope["tool"] == "get_definition"
     assert envelope["request_id"] == "abc123"
 
 
@@ -96,7 +96,7 @@ def test_sanitizer_redacts_internal_path() -> None:
     envelope = build_error(
         ErrorCode.INTERNAL_ERROR,
         "Error in /Users/husam/workspace/cpp-mcp/src/cpp_mcp/core/error_envelope.py",
-        "cpp_get_definition",
+        "get_definition",
         "rid-002",
         echo=(),
     )
@@ -110,7 +110,7 @@ def test_sanitizer_preserves_echoed_caller_path() -> None:
     envelope = build_error(
         ErrorCode.FILE_NOT_FOUND,
         f"File not found: {caller_path}",
-        "cpp_get_definition",
+        "get_definition",
         "rid-003",
         echo=(caller_path,),
     )
@@ -123,7 +123,7 @@ def test_sanitizer_redacts_path_not_in_echo() -> None:
     envelope = build_error(
         ErrorCode.PATH_VIOLATION,
         "Resolved to /etc/passwd which is outside allowed roots.",
-        "cpp_get_definition",
+        "get_definition",
         "rid-004",
         echo=(),
     )

@@ -47,7 +47,7 @@ _EXCEPTION_CODE_PAIRS: list[tuple[Exception, str]] = [
 
 _ENVELOPE_KEYS: frozenset[str] = frozenset({"code", "message", "tool", "request_id"})
 
-_TOOL_NAME = "cpp_get_definition"
+_TOOL_NAME = "get_definition"
 
 
 class TestEnvelopeShape:

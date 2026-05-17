@@ -34,13 +34,13 @@ Forces:
        "edges_attempted":  int,  # len(edge_batch); always >= edges_written
    }
    ```
-   Propagate up through `tools/export_to_graphdb.py` so the MCP tool response carries all four fields.
+   Propagate up through `tools/export_to_graphdb.py` (renamed to `tools/ingest_code.py` in v5) so the MCP tool response carries all four fields.
 
 3. **IndraDB implementation:** per-record `get(SpecificVertexQuery(vid))` / `get(SpecificEdgeQuery(edge))` pre-check; create-and-increment only when the query returns empty.
 
 4. **Neo4j implementation:** drop `RETURN n`; use `result.consume().counters.nodes_created` / `relationships_created` to sum inserts. Verified by code review (AC-3-3) — no live daemon test available.
 
-5. **Document the contract** in the Protocol docstring (`driver.py:68-82`) and in the tool docstring (`tools/export_to_graphdb.py`).
+5. **Document the contract** in the Protocol docstring (`driver.py:68-82`) and in the tool docstring (`tools/export_to_graphdb.py`, renamed to `tools/ingest_code.py` in v5).
 
 ## Alternatives considered
 
@@ -80,7 +80,7 @@ Follow-ups:
 - `src/cpp_mcp/graphdb/indradb_driver.py:124-187` — per-record pre-check refactor target
 - `src/cpp_mcp/graphdb/neo4j_driver.py:80-127` — `RETURN n` → `consume().counters` refactor target
 - `src/cpp_mcp/graphdb/exporter.py:504-514` — extend return dict
-- `src/cpp_mcp/tools/export_to_graphdb.py:116-135` — propagate new fields
+- `src/cpp_mcp/tools/export_to_graphdb.py:116-135` — propagate new fields (renamed to `ingest_code.py` in v5)
 - requirements.md US-V4-3, AC-3-1..AC-3-4, OQ-3-1
 - scenarios.md SC-V4-3-01, SC-V4-3-02, SC-V4-2-04
 - Neo4j Python driver docs: `ResultSummary.counters` (`neo4j` ≥5.x stable)

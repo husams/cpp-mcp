@@ -13,7 +13,7 @@ from __future__ import annotations
 from cpp_mcp.core.error_envelope import ErrorCode, wrap_tool
 
 _INTERNAL_PATH = "/Users/husam/workspace/cpp-mcp/src/cpp_mcp/core/secret.py"
-_TOOL_NAME = "cpp_get_definition"
+_TOOL_NAME = "get_definition"
 
 
 class TestMaskErrorDetails:

@@ -1,8 +1,8 @@
 """Unit tests for Story S3 tool registration (US-M3 acceptance criteria).
 
-SC_USM3_1: 7 tools registered with v1 names.
+SC_USM3_1: 7 tools registered with v5 names (no cpp_ prefix; ingest_code).
 SC_USM3_2: Tool input schemas exclude dependency parameters.
-SC_USM3_3: Tool descriptions match v1 description strings.
+SC_USM3_3: Tool descriptions match v5 description strings.
 SC_USM3_4: No schema property named session/allowed_roots/default_flags/ast_*.
 """
 
@@ -17,13 +17,13 @@ from tests.fixtures.expected_tool_descriptions import EXPECTED_TOOL_DESCRIPTIONS
 
 EXPECTED_TOOL_NAMES: frozenset[str] = frozenset(
     {
-        "cpp_get_definition",
-        "cpp_get_references",
-        "cpp_get_type_info",
-        "cpp_get_ast",
-        "cpp_get_header_info",
-        "cpp_get_preprocessor_state",
-        "cpp_export_to_graphdb",
+        "get_definition",
+        "get_references",
+        "get_type_info",
+        "get_ast",
+        "get_header_info",
+        "get_preprocessor_state",
+        "ingest_code",
     }
 )
 
@@ -48,9 +48,9 @@ def registered_tools() -> list[Any]:
 
 
 class TestToolCatalogue:
-    """SC_USM3_1: exactly 7 tools registered with the correct v1 names."""
+    """SC_USM3_1: exactly 7 tools registered with the correct v5 names."""
 
-    def test_seven_tools_registered_with_v1_names(self, registered_tools: list[Any]) -> None:
+    def test_seven_tools_registered_with_v5_names(self, registered_tools: list[Any]) -> None:
         names = {t.name for t in registered_tools}
         assert names == EXPECTED_TOOL_NAMES, (
             f"Registered tool names differ from expected.\n"
@@ -75,9 +75,9 @@ class TestToolSchemas:
 
 
 class TestToolDescriptions:
-    """SC_USM3_3: registered description strings match the v1 strings."""
+    """SC_USM3_3: registered description strings match the v5 strings."""
 
-    def test_tool_descriptions_non_empty_match_v1(self, registered_tools: list[Any]) -> None:
+    def test_tool_descriptions_non_empty_match_v5(self, registered_tools: list[Any]) -> None:
         for tool in registered_tools:
             if tool.name not in EXPECTED_TOOL_DESCRIPTIONS:
                 continue

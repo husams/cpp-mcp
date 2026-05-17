@@ -21,13 +21,13 @@ import pytest
 # ---------------------------------------------------------------------------
 
 EXPECTED_TOOL_NAMES: list[str] = [
-    "cpp_get_definition",
-    "cpp_get_references",
-    "cpp_get_type_info",
-    "cpp_get_ast",
-    "cpp_get_header_info",
-    "cpp_get_preprocessor_state",
-    "cpp_export_to_graphdb",
+    "get_definition",
+    "get_references",
+    "get_type_info",
+    "get_ast",
+    "get_header_info",
+    "get_preprocessor_state",
+    "ingest_code",
 ]
 
 VALID_ERROR_CODES = {
@@ -79,10 +79,12 @@ class TestToolCatalogue:
         extras = names - set(EXPECTED_TOOL_NAMES)
         assert not extras, f"Undeclared tools registered: {extras}"
 
-    def test_export_to_graphdb_in_catalogue(self, registered_tools):
-        """Explicit regression: cpp_export_to_graphdb must appear."""
+    def test_ingest_code_in_catalogue(self, registered_tools):
+        """Explicit regression: ingest_code must appear; old name must be absent (v5 rename)."""
         names = [t.name for t in registered_tools]
-        assert "cpp_export_to_graphdb" in names
+        assert "ingest_code" in names
+        old_name = "cpp_" + "export_to_graphdb"
+        assert old_name not in names
 
 
 # ---------------------------------------------------------------------------
@@ -160,7 +162,7 @@ class TestDispatchErrorEnvelope:
         """Calling a tool with a path-traversal input must return an error envelope dict."""
         from cpp_mcp.core.error_envelope import PathViolationError, wrap_tool
 
-        @wrap_tool("cpp_get_definition")
+        @wrap_tool("get_definition")
         def _bomb(file_path: str, line: int, col: int) -> dict:  # type: ignore[return]
             raise PathViolationError("path traversal detected")
 
@@ -178,7 +180,7 @@ class TestDispatchErrorEnvelope:
         """Unexpected exceptions (RuntimeError, etc.) become INTERNAL_ERROR envelopes."""
         from cpp_mcp.core.error_envelope import wrap_tool
 
-        @wrap_tool("cpp_get_ast")
+        @wrap_tool("get_ast")
         def _crash(file_path: str) -> dict:  # type: ignore[return]
             raise RuntimeError("unexpected segfault in libclang binding")
 
@@ -209,7 +211,7 @@ class TestDispatchErrorEnvelope:
 
         exc_type = getattr(ee, exc_class)
 
-        @ee.wrap_tool("cpp_get_definition")
+        @ee.wrap_tool("get_definition")
         def _raise(file_path: str, line: int, col: int) -> dict:  # type: ignore[return]
             raise exc_type("test message")
 

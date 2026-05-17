@@ -25,6 +25,9 @@ Use `cargo install indradb` followed by `indradb-server memory` as the **only** 
 - Update `.claude/handoff/v3/runbook.md` references to the broken image.
 - The `indradb_daemon` pytest fixture (US-V4-2) shells out to `indradb-server memory` directly when `INDRADB_AUTOSTART=1`.
 
+> **v5 note:** `cpp_export_to_graphdb` (renamed to `ingest_code` in v5) is the MCP tool that uses
+> the IndraDB backend described in this ADR. Historical references above use the v4 name.
+
 ## Alternatives considered
 
 a. **Self-built image pushed to `registry.senussi.me`.**

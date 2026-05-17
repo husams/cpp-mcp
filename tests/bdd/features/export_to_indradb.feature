@@ -1,5 +1,5 @@
 Feature: IndraDB BDD export coverage
-  # US-G5: cpp_export_to_graphdb end-to-end with IndraDB, fake-driver unconditional,
+  # US-G5: ingest_code end-to-end with IndraDB, fake-driver unconditional,
   # live-daemon gated on INDRADB_TEST_URI.
 
   Background:
@@ -10,7 +10,7 @@ Feature: IndraDB BDD export coverage
   @SC_US_G5_1
   Scenario: Export a single C++ file to IndraDB via fake driver succeeds
     Given a valid C++ source file "main.cpp" exists in the allowed root
-    When cpp_export_to_graphdb is called with that file and an indradb:// URI
+    When ingest_code is called with that file and an indradb:// URI
     Then the response contains files_processed equal to 1
     And the response contains no errors
     And graph node types include File
@@ -20,8 +20,8 @@ Feature: IndraDB BDD export coverage
   Scenario: Re-exporting the same file to IndraDB produces the same node count
     Given a valid C++ source file "main.cpp" exists in the allowed root
     And the fake IndraDB driver uses an idempotent upsert store
-    When cpp_export_to_graphdb is called with that file and an indradb:// URI
-    And cpp_export_to_graphdb is called again with the same file and URI
+    When ingest_code is called with that file and an indradb:// URI
+    And ingest_code is called again with the same file and URI
     Then the node count after the second run equals the node count after the first run
     And the edge count after the second run equals the edge count after the first run
 
@@ -30,7 +30,7 @@ Feature: IndraDB BDD export coverage
   Scenario: Export to IndraDB with unreachable daemon returns DB_UNREACHABLE
     Given a valid C++ source file "main.cpp" exists in the allowed root
     And the fake IndraDB driver is configured to fail on connect
-    When cpp_export_to_graphdb is called with that file and an indradb:// URI
+    When ingest_code is called with that file and an indradb:// URI
     Then the response code is "DB_UNREACHABLE"
     And no database write occurs
 
@@ -52,7 +52,7 @@ Feature: IndraDB BDD export coverage
   @SC_US_G5_5
   Scenario: Path traversal in file_path_or_dir with indradb URI returns PATH_VIOLATION
     Given the fake IndraDB driver is installed
-    When cpp_export_to_graphdb is called with file_path_or_dir "../../etc/passwd" and an indradb:// URI
+    When ingest_code is called with file_path_or_dir "../../etc/passwd" and an indradb:// URI
     Then the response code is "PATH_VIOLATION"
     And no database write occurs
 
@@ -60,7 +60,7 @@ Feature: IndraDB BDD export coverage
   @SC_US_G5_6
   Scenario: Non-existent file with indradb URI returns FILE_NOT_FOUND
     Given the fake IndraDB driver is installed
-    When cpp_export_to_graphdb is called with a non-existent file and an indradb:// URI
+    When ingest_code is called with a non-existent file and an indradb:// URI
     Then the response code is "FILE_NOT_FOUND"
     And no database write occurs
 
@@ -69,7 +69,7 @@ Feature: IndraDB BDD export coverage
   Scenario: Export a C++ file to a real IndraDB daemon and verify node exists
     Given INDRADB_TEST_URI is set in the environment
     And a valid C++ source file "main.cpp" exists in the allowed root
-    When cpp_export_to_graphdb is called with that file and the INDRADB_TEST_URI
+    When ingest_code is called with that file and the INDRADB_TEST_URI
     Then the response contains files_processed equal to 1
     And the response contains no errors
     And the live IndraDB database contains at least one File node
@@ -79,7 +79,7 @@ Feature: IndraDB BDD export coverage
   Scenario: Re-exporting to a real IndraDB daemon is idempotent
     Given INDRADB_TEST_URI is set in the environment
     And a valid C++ source file "main.cpp" exists in the allowed root
-    When cpp_export_to_graphdb is called with that file and the INDRADB_TEST_URI
+    When ingest_code is called with that file and the INDRADB_TEST_URI
     And the node count is recorded
-    And cpp_export_to_graphdb is called again with the same file and URI
+    And ingest_code is called again with the same file and URI
     Then the node count after the second run equals the recorded count

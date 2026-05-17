@@ -1,4 +1,4 @@
-"""BDD step implementations for cpp_get_type_info feature (Story 5 / US-3)."""
+"""BDD step implementations for get_type_info feature (Story 5 / US-3)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pytest_bdd import given, parsers, scenarios, then, when
 
 from tests.bdd.conftest import copy_fixture, make_nonexistent_path, requires_libclang
 
-scenarios("features/cpp_get_type_info.feature")
+scenarios("features/get_type_info.feature")
 
 
 # ---------------------------------------------------------------------------
@@ -39,7 +39,7 @@ def copy_types_test(tmp_allowed_root: Path, ctx: dict[str, Any]) -> None:
 
 
 @requires_libclang
-@when(parsers.parse("cpp_get_type_info is called with that file at line {line:d} col {col:d}"))
+@when(parsers.parse("get_type_info is called with that file at line {line:d} col {col:d}"))
 def call_get_type_info(
     line: int,
     col: int,
@@ -73,18 +73,14 @@ def call_get_type_info(
         ctx["error"] = None
     except InvalidPositionError as exc:
         ctx["result"] = build_error(
-            ErrorCode.INVALID_POSITION, str(exc), "cpp_get_type_info", request_id
+            ErrorCode.INVALID_POSITION, str(exc), "get_type_info", request_id
         )
         ctx["error"] = None
     except (FileNotFoundError, FileNotFoundError_) as exc:
-        ctx["result"] = build_error(
-            ErrorCode.FILE_NOT_FOUND, str(exc), "cpp_get_type_info", request_id
-        )
+        ctx["result"] = build_error(ErrorCode.FILE_NOT_FOUND, str(exc), "get_type_info", request_id)
         ctx["error"] = None
     except PathViolationError as exc:
-        ctx["result"] = build_error(
-            ErrorCode.PATH_VIOLATION, str(exc), "cpp_get_type_info", request_id
-        )
+        ctx["result"] = build_error(ErrorCode.PATH_VIOLATION, str(exc), "get_type_info", request_id)
         ctx["error"] = None
     except Exception as exc:
         ctx["result"] = None
@@ -92,9 +88,7 @@ def call_get_type_info(
 
 
 @when(
-    parsers.parse(
-        "cpp_get_type_info is called with a non-existent file at line {line:d} col {col:d}"
-    )
+    parsers.parse("get_type_info is called with a non-existent file at line {line:d} col {col:d}")
 )
 def call_get_type_info_nonexistent(
     line: int,
@@ -113,17 +107,11 @@ def call_get_type_info_nonexistent(
         ctx["result"] = None
         ctx["error"] = None
     except FileNotFoundError as exc:
-        ctx["result"] = build_error(
-            ErrorCode.FILE_NOT_FOUND, str(exc), "cpp_get_type_info", request_id
-        )
+        ctx["result"] = build_error(ErrorCode.FILE_NOT_FOUND, str(exc), "get_type_info", request_id)
         ctx["error"] = None
 
 
-@when(
-    parsers.parse(
-        'cpp_get_type_info is called with file_path "{path}" at line {line:d} col {col:d}'
-    )
-)
+@when(parsers.parse('get_type_info is called with file_path "{path}" at line {line:d} col {col:d}'))
 def call_get_type_info_raw_path(
     path: str,
     line: int,
@@ -140,9 +128,7 @@ def call_get_type_info_raw_path(
         ctx["result"] = None
         ctx["error"] = None
     except PathViolationError as exc:
-        ctx["result"] = build_error(
-            ErrorCode.PATH_VIOLATION, str(exc), "cpp_get_type_info", request_id
-        )
+        ctx["result"] = build_error(ErrorCode.PATH_VIOLATION, str(exc), "get_type_info", request_id)
         ctx["error"] = None
 
 

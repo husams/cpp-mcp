@@ -1,6 +1,6 @@
-"""BDD tests for cpp_get_header_info (Story 6, US-5).
+"""BDD tests for get_header_info (Story 6, US-5).
 
-pytest-bdd step definitions for tests/bdd/features/cpp_get_header_info.feature.
+pytest-bdd step definitions for tests/bdd/features/get_header_info.feature.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from pytest_bdd import given, parsers, scenarios, then, when
 
 from tests.bdd.conftest import copy_fixture, make_nonexistent_path
 
-scenarios("features/cpp_get_header_info.feature")
+scenarios("features/get_header_info.feature")
 
 # ---------------------------------------------------------------------------
 # Given steps
@@ -38,13 +38,13 @@ def _fixture_exists_hi(name: str, ctx: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
-@when(parsers.parse('cpp_get_header_info is called on "{name}"'))
+@when(parsers.parse('get_header_info is called on "{name}"'))
 def _call_hi(name: str, clang_session: Any, ctx: dict[str, Any]) -> None:
 
-    from cpp_mcp.tools.get_header_info import cpp_get_header_info
+    from cpp_mcp.tools.get_header_info import get_header_info
 
     file_path = str(ctx["root"] / name)
-    ctx["response"] = cpp_get_header_info(
+    ctx["response"] = get_header_info(
         file_path=file_path,
         allowed_roots=ctx["allowed_roots"],
         default_flags=ctx["default_flags"],
@@ -52,13 +52,13 @@ def _call_hi(name: str, clang_session: Any, ctx: dict[str, Any]) -> None:
     )
 
 
-@when(parsers.parse('cpp_get_header_info is called on "{name}" with no build_path'))
+@when(parsers.parse('get_header_info is called on "{name}" with no build_path'))
 def _call_hi_no_build(name: str, clang_session: Any, ctx: dict[str, Any]) -> None:
 
-    from cpp_mcp.tools.get_header_info import cpp_get_header_info
+    from cpp_mcp.tools.get_header_info import get_header_info
 
     file_path = str(ctx["root"] / name)
-    ctx["response"] = cpp_get_header_info(
+    ctx["response"] = get_header_info(
         file_path=file_path,
         allowed_roots=ctx["allowed_roots"],
         default_flags=ctx["default_flags"],
@@ -67,11 +67,11 @@ def _call_hi_no_build(name: str, clang_session: Any, ctx: dict[str, Any]) -> Non
     )
 
 
-@when("cpp_get_header_info is called on a non-existent file")
+@when("get_header_info is called on a non-existent file")
 def _call_hi_nonexistent(ctx: dict[str, Any]) -> None:
 
     from cpp_mcp.core.error_envelope import ErrorCode, FileNotFoundError_, build_error
-    from cpp_mcp.tools.get_header_info import cpp_get_header_info
+    from cpp_mcp.tools.get_header_info import get_header_info
 
     file_path = make_nonexistent_path(ctx["root"])
 
@@ -80,7 +80,7 @@ def _call_hi_nonexistent(ctx: dict[str, Any]) -> None:
             raise RuntimeError("should not be called")
 
     try:
-        result = cpp_get_header_info(
+        result = get_header_info(
             file_path=file_path,
             allowed_roots=ctx["allowed_roots"],
             default_flags=ctx["default_flags"],
@@ -88,23 +88,21 @@ def _call_hi_nonexistent(ctx: dict[str, Any]) -> None:
         )
         ctx["response"] = result
     except (FileNotFoundError, FileNotFoundError_) as exc:
-        ctx["response"] = build_error(
-            ErrorCode.FILE_NOT_FOUND, str(exc), "cpp_get_header_info", "test"
-        )
+        ctx["response"] = build_error(ErrorCode.FILE_NOT_FOUND, str(exc), "get_header_info", "test")
 
 
-@when(parsers.parse('cpp_get_header_info is called with file_path "{raw_path}"'))
+@when(parsers.parse('get_header_info is called with file_path "{raw_path}"'))
 def _call_hi_path_traversal(raw_path: str, ctx: dict[str, Any]) -> None:
 
     from cpp_mcp.core.error_envelope import ErrorCode, PathViolationError, build_error
-    from cpp_mcp.tools.get_header_info import cpp_get_header_info
+    from cpp_mcp.tools.get_header_info import get_header_info
 
     class _FakeSession:
         async def parse(self, *a: Any, **kw: Any) -> Any:  # pragma: no cover
             raise RuntimeError("should not be called")
 
     try:
-        result = cpp_get_header_info(
+        result = get_header_info(
             file_path=raw_path,
             allowed_roots=ctx["allowed_roots"],
             default_flags=ctx["default_flags"],
@@ -112,9 +110,7 @@ def _call_hi_path_traversal(raw_path: str, ctx: dict[str, Any]) -> None:
         )
         ctx["response"] = result
     except PathViolationError as exc:
-        ctx["response"] = build_error(
-            ErrorCode.PATH_VIOLATION, str(exc), "cpp_get_header_info", "test"
-        )
+        ctx["response"] = build_error(ErrorCode.PATH_VIOLATION, str(exc), "get_header_info", "test")
 
 
 # ---------------------------------------------------------------------------

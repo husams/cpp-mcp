@@ -1,4 +1,4 @@
-"""cpp_export_to_graphdb MCP tool implementation.
+"""ingest_code MCP tool implementation (v5 rename; previously export_to_graphdb).
 
 S3: converted to sync def + @mcp.tool + Depends DI (ADR-3, ADR-7).
 
@@ -34,10 +34,10 @@ from cpp_mcp.graphdb.exporter import collect_cpp_files, export_file
 
 logger = logging.getLogger(__name__)
 
-_TOOL_NAME = "cpp_export_to_graphdb"
+_TOOL_NAME = "ingest_code"
 
 
-def _do_export_to_graphdb(
+def _do_ingest_code(
     *,
     file_path_or_dir: str,
     build_path: str | None,
@@ -79,11 +79,11 @@ def _do_export_to_graphdb(
     # 1. INVALID_ARGUMENT — empty / missing inputs.
     if not db_uri:
         raise InvalidArgumentError(
-            "db_uri is required and must be a non-empty string for cpp_export_to_graphdb."
+            "db_uri is required and must be a non-empty string for ingest_code."
         )
     if not build_path:
         raise InvalidArgumentError(
-            "build_path is required and must be a non-empty string for cpp_export_to_graphdb."
+            "build_path is required and must be a non-empty string for ingest_code."
         )
 
     # 2. INVALID_ARGUMENT — unknown URI scheme (must precede path checks per ADR-12).
@@ -149,7 +149,7 @@ def _do_export_to_graphdb(
     }
 
 
-def cpp_export_to_graphdb(
+def ingest_code(
     *,
     file_path_or_dir: str,
     build_path: str | None,
@@ -176,7 +176,7 @@ def cpp_export_to_graphdb(
         Success payload: ``{files_processed, nodes_written, edges_written,
         nodes_attempted, edges_attempted, errors}`` (ADR-17).
     """
-    return _do_export_to_graphdb(
+    return _do_ingest_code(
         file_path_or_dir=file_path_or_dir,
         build_path=build_path,
         db_uri=db_uri,
@@ -189,16 +189,16 @@ def cpp_export_to_graphdb(
 
 
 def _register(mcp: Any) -> None:
-    """Register cpp_export_to_graphdb against *mcp*. Called by build_server()."""
+    """Register ingest_code against *mcp*. Called by build_server()."""
 
     @mcp.tool(  # type: ignore[untyped-decorator]
-        name="cpp_export_to_graphdb",
+        name="ingest_code",
         description=(
             "Export C++ symbols and relationships from a file or directory to a graph database."
         ),
     )
     @wrap_tool(_TOOL_NAME)
-    def cpp_export_to_graphdb_tool(
+    def ingest_code_tool(
         file_path_or_dir: Annotated[
             str,
             "Absolute path to a C++ source file or directory to export.",
@@ -223,7 +223,7 @@ def _register(mcp: Any) -> None:
     ) -> dict[str, Any]:
         request_id = uuid.uuid4().hex
         return session.executor.submit(  # type: ignore[no-any-return]
-            _do_export_to_graphdb,
+            _do_ingest_code,
             file_path_or_dir=file_path_or_dir,
             build_path=build_path,
             db_uri=db_uri,

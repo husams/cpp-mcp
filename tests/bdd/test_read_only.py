@@ -3,7 +3,7 @@
 QA additions (mandatory — SC-US-11-1 coverage):
   SC_US_11_1_ALL_TOOLS: Scenario Outline that exercises each of the 6 navigation
   tools and asserts mtime is unchanged after every call. Extends the developer
-  baseline (cpp_get_definition only) to cover all tools required by the scenario.
+  baseline (get_definition only) to cover all tools required by the scenario.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ def build_app_fixture(tmp_allowed_root: Path, ctx: dict[str, Any]) -> None:
 
 
 @requires_libclang
-@when("cpp_get_definition is called via the app for that file at line 1 col 5")
+@when("get_definition is called via the app for that file at line 1 col 5")
 def call_get_definition_app_read_only(
     ctx: dict[str, Any],
     tmp_allowed_root: Path,
@@ -90,7 +90,7 @@ def call_any_nav_tool(
     request_id = f"test-read-only-{tool_name}"
 
     def _dispatch() -> dict[str, Any]:
-        if tool_name == "cpp_get_definition":
+        if tool_name == "get_definition":
             from cpp_mcp.tools.get_definition import get_definition
 
             return get_definition(
@@ -103,7 +103,7 @@ def call_any_nav_tool(
                 session=session,
                 request_id=request_id,
             )
-        elif tool_name == "cpp_get_references":
+        elif tool_name == "get_references":
             from cpp_mcp.tools.get_references import get_references
 
             return get_references(
@@ -116,7 +116,7 @@ def call_any_nav_tool(
                 session=session,
                 request_id=request_id,
             )
-        elif tool_name == "cpp_get_type_info":
+        elif tool_name == "get_type_info":
             from cpp_mcp.tools.get_type_info import get_type_info
 
             return get_type_info(
@@ -129,30 +129,30 @@ def call_any_nav_tool(
                 session=session,
                 request_id=request_id,
             )
-        elif tool_name == "cpp_get_ast":
-            from cpp_mcp.tools.get_ast import cpp_get_ast
+        elif tool_name == "get_ast":
+            from cpp_mcp.tools.get_ast import get_ast
 
-            return cpp_get_ast(
+            return get_ast(
                 file_path=file_path,
                 allowed_roots=allowed_roots,
                 default_flags=default_flags,
                 session=session,
                 build_path=None,
             )
-        elif tool_name == "cpp_get_header_info":
-            from cpp_mcp.tools.get_header_info import cpp_get_header_info
+        elif tool_name == "get_header_info":
+            from cpp_mcp.tools.get_header_info import get_header_info
 
-            return cpp_get_header_info(
+            return get_header_info(
                 file_path=file_path,
                 allowed_roots=allowed_roots,
                 default_flags=default_flags,
                 session=session,
                 build_path=None,
             )
-        elif tool_name == "cpp_get_preprocessor_state":
-            from cpp_mcp.tools.get_preprocessor_state import cpp_get_preprocessor_state
+        elif tool_name == "get_preprocessor_state":
+            from cpp_mcp.tools.get_preprocessor_state import get_preprocessor_state
 
-            return cpp_get_preprocessor_state(
+            return get_preprocessor_state(
                 file_path=file_path,
                 allowed_roots=allowed_roots,
                 default_flags=default_flags,

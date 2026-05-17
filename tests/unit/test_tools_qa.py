@@ -232,7 +232,7 @@ def test_invalid_range_boundary(
     Covers SC-US-4-8 (US-4/AC-9).
     """
     from cpp_mcp.core.error_envelope import InvalidRangeError
-    from cpp_mcp.tools.get_ast import cpp_get_ast
+    from cpp_mcp.tools.get_ast import get_ast
 
     root = tmp_path / "projects"
     root.mkdir()
@@ -246,7 +246,7 @@ def test_invalid_range_boundary(
 
     if should_raise:
         with pytest.raises(InvalidRangeError):
-            cpp_get_ast(
+            get_ast(
                 file_path=str(cpp_file),
                 allowed_roots=allowed_roots,
                 default_flags=default_flags,
@@ -258,7 +258,7 @@ def test_invalid_range_boundary(
         # Should not raise InvalidRangeError (may fail later when session.parse
         # is called — we only care the range check itself passes)
         try:
-            cpp_get_ast(
+            get_ast(
                 file_path=str(cpp_file),
                 allowed_roots=allowed_roots,
                 default_flags=default_flags,
@@ -333,12 +333,12 @@ def test_has_fatal_diagnostics_false_for_warnings_only() -> None:
 
 
 def test_fatal_parse_error_raised_when_zero_nodes_and_fatal_diag(tmp_path: Path) -> None:
-    """cpp_get_ast raises FatalParseError when both conditions hold.
+    """get_ast raises FatalParseError when both conditions hold.
 
     Covers SC-US-4-11 (US-13/AC-3 / PARSE_ERROR threshold).
     """
     from cpp_mcp.core.error_envelope import FatalParseError
-    from cpp_mcp.tools.get_ast import cpp_get_ast
+    from cpp_mcp.tools.get_ast import get_ast
 
     # Fake TU: zero children + fatal diagnostic
     fatal_diag = MagicMock()
@@ -361,7 +361,7 @@ def test_fatal_parse_error_raised_when_zero_nodes_and_fatal_diag(tmp_path: Path)
             return mock_tu, False
 
     with pytest.raises(FatalParseError):
-        cpp_get_ast(
+        get_ast(
             file_path=str(cpp_file),
             allowed_roots=(str(allowed_root),),
             default_flags=("-std=c++17", "-x", "c++"),
@@ -385,7 +385,7 @@ def test_preprocessor_ifdef_debug_evaluated_result_is_true(tmp_path: Path) -> No
     """
 
     from cpp_mcp.core.clang_session import ClangSession
-    from cpp_mcp.tools.get_preprocessor_state import cpp_get_preprocessor_state
+    from cpp_mcp.tools.get_preprocessor_state import get_preprocessor_state
 
     root = tmp_path / "projects"
     root.mkdir()
@@ -394,7 +394,7 @@ def test_preprocessor_ifdef_debug_evaluated_result_is_true(tmp_path: Path) -> No
 
     # Pass -DDEBUG=1 so the #ifdef DEBUG block should be evaluated as true.
     flags = ("-std=c++17", "-x", "c++", "-DDEBUG=1")
-    response = cpp_get_preprocessor_state(
+    response = get_preprocessor_state(
         file_path=str(cpp_file),
         allowed_roots=(str(root),),
         default_flags=flags,

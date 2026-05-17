@@ -37,7 +37,7 @@ def set_cache_capacity_config(tmp_allowed_root: Path, ctx: dict[str, Any]) -> No
 
 
 @requires_libclang
-@when("cpp_get_definition is called via app twice for the same file")
+@when("get_definition is called via app twice for the same file")
 def call_twice(
     ctx: dict[str, Any],
     tmp_allowed_root: Path,
@@ -76,7 +76,7 @@ def call_twice(
 
 
 @requires_libclang
-@when("cpp_get_definition is called via app once for that file")
+@when("get_definition is called via app once for that file")
 def call_once(
     ctx: dict[str, Any],
     tmp_allowed_root: Path,

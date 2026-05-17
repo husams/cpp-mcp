@@ -149,13 +149,13 @@ def assert_http_init_ok(ctx: dict[str, Any]) -> None:
 @then("the HTTP server exposes all 7 tools")
 def assert_http_all_tools(ctx: dict[str, Any]) -> None:
     expected = {
-        "cpp_get_definition",
-        "cpp_get_references",
-        "cpp_get_type_info",
-        "cpp_get_ast",
-        "cpp_get_header_info",
-        "cpp_get_preprocessor_state",
-        "cpp_export_to_graphdb",
+        "get_definition",
+        "get_references",
+        "get_type_info",
+        "get_ast",
+        "get_header_info",
+        "get_preprocessor_state",
+        "ingest_code",
     }
     actual = set(ctx.get("tools", []))
     missing = expected - actual

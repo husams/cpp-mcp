@@ -2,10 +2,10 @@
 
 Covers:
   SC-V4-1-03 — each of the seven exposed tools returns a non-error response
-                (or, for cpp_export_to_graphdb, a structured error envelope)
+                (or, for ingest_code, a structured error envelope)
                 when called with minimum valid arguments.
 
-Design §3.1: for ``cpp_export_to_graphdb`` the parametrised smoke uses
+Design §3.1: for ``ingest_code`` the parametrised smoke uses
 ``db_uri="bolt://invalid"`` and asserts a structured error envelope with code
 ``DB_UNREACHABLE`` or ``DEPENDENCY_MISSING``.  This exercises the dispatch path
 through real MCP serialisation without requiring a live database daemon.
@@ -25,7 +25,7 @@ from fastmcp import Client
 _OS_CC = "test-repo/fmt/src/os.cc"
 _BUILD_PATH = "test-repo/fmt/build"
 
-# Structured error codes that are acceptable for cpp_export_to_graphdb when no
+# Structured error codes that are acceptable for ingest_code when no
 # live db is available.  Both are valid depending on whether the graphdb extra
 # is installed.
 _EXPORT_ACCEPTABLE_ERROR_CODES = {"DB_UNREACHABLE", "DEPENDENCY_MISSING"}
@@ -33,31 +33,31 @@ _EXPORT_ACCEPTABLE_ERROR_CODES = {"DB_UNREACHABLE", "DEPENDENCY_MISSING"}
 # Minimum valid arguments for each tool.
 _TOOL_ARGS: list[tuple[str, dict[str, Any]]] = [
     (
-        "cpp_get_ast",
+        "get_ast",
         {"file_path": _OS_CC, "build_path": _BUILD_PATH},
     ),
     (
-        "cpp_get_definition",
+        "get_definition",
         {"file_path": _OS_CC, "line": 1, "col": 1, "build_path": _BUILD_PATH},
     ),
     (
-        "cpp_get_references",
+        "get_references",
         {"file_path": _OS_CC, "line": 1, "col": 1, "build_path": _BUILD_PATH},
     ),
     (
-        "cpp_get_type_info",
+        "get_type_info",
         {"file_path": _OS_CC, "line": 1, "col": 1, "build_path": _BUILD_PATH},
     ),
     (
-        "cpp_get_header_info",
+        "get_header_info",
         {"file_path": _OS_CC, "build_path": _BUILD_PATH},
     ),
     (
-        "cpp_get_preprocessor_state",
+        "get_preprocessor_state",
         {"file_path": _OS_CC, "build_path": _BUILD_PATH},
     ),
     (
-        "cpp_export_to_graphdb",
+        "ingest_code",
         {
             "file_path_or_dir": _OS_CC,
             "build_path": _BUILD_PATH,
@@ -74,15 +74,15 @@ async def test_sc_v4_1_03_tool_smoke(
 ) -> None:
     """SC-V4-1-03: each tool returns a non-error or structured-error response via mcp_client.
 
-    For all tools except ``cpp_export_to_graphdb``: asserts ``is_error=False``
+    For all tools except ``ingest_code``: asserts ``is_error=False``
     and that ``result.data`` is a non-empty mapping.
 
-    For ``cpp_export_to_graphdb``: asserts the response is a structured error
+    For ``ingest_code``: asserts the response is a structured error
     envelope with a recognised error code (no live daemon required).
     """
     result = await mcp_client.call_tool(tool_name, args)
 
-    if tool_name == "cpp_export_to_graphdb":
+    if tool_name == "ingest_code":
         # Structured envelope expected — DEPENDENCY_MISSING (extra not installed)
         # or DB_UNREACHABLE (extra installed but host unreachable).
         assert result.data is not None, (

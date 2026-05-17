@@ -1,4 +1,4 @@
-// Fixture for cpp_get_preprocessor_state BDD tests (Story 6).
+// Fixture for get_preprocessor_state BDD tests (Story 6).
 // Contains macro definitions and #ifdef/#endif conditional blocks.
 // No system headers.
 

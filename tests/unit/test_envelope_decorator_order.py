@@ -15,13 +15,13 @@ import pytest
 
 EXPECTED_TOOL_NAMES: frozenset[str] = frozenset(
     {
-        "cpp_get_definition",
-        "cpp_get_references",
-        "cpp_get_type_info",
-        "cpp_get_ast",
-        "cpp_get_header_info",
-        "cpp_get_preprocessor_state",
-        "cpp_export_to_graphdb",
+        "get_definition",
+        "get_references",
+        "get_type_info",
+        "get_ast",
+        "get_header_info",
+        "get_preprocessor_state",
+        "ingest_code",
     }
 )
 

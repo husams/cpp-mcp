@@ -1,4 +1,4 @@
-"""cpp_get_preprocessor_state tool: retrieve macro definitions and conditional state.
+"""get_preprocessor_state tool: retrieve macro definitions and conditional state.
 
 S3: converted to sync def + @mcp.tool + Depends DI (ADR-3, ADR-7).
 US-6 / ADR-1 (OQ-7: include transitive macros, tag each with defined_at.file).
@@ -20,7 +20,7 @@ from cpp_mcp.core.deps import get_allowed_roots, get_default_flags, get_session
 from cpp_mcp.core.error_envelope import wrap_tool
 from cpp_mcp.core.path_guard import validate_path
 
-_TOOL_NAME = "cpp_get_preprocessor_state"
+_TOOL_NAME = "get_preprocessor_state"
 
 # TranslationUnit.PARSE_DETAILED_PROCESSING_RECORD == 1
 _PARSE_DETAILED = 1
@@ -235,7 +235,7 @@ def _do_get_preprocessor_state(
     }
 
 
-def cpp_get_preprocessor_state(
+def get_preprocessor_state(
     file_path: str,
     allowed_roots: tuple[str, ...],
     default_flags: tuple[str, ...],
@@ -264,16 +264,16 @@ def cpp_get_preprocessor_state(
 
 
 def _register(mcp: Any) -> None:
-    """Register cpp_get_preprocessor_state against *mcp*. Called by build_server()."""
+    """Register get_preprocessor_state against *mcp*. Called by build_server()."""
 
     @mcp.tool(  # type: ignore[untyped-decorator]
-        name="cpp_get_preprocessor_state",
+        name="get_preprocessor_state",
         description=(
             "Retrieve active macro definitions and evaluated preprocessor conditional branch state."
         ),
     )
     @wrap_tool(_TOOL_NAME)
-    def cpp_get_preprocessor_state_tool(
+    def get_preprocessor_state_tool(
         file_path: Annotated[str, "Absolute path to the C++ source file."],
         build_path: Annotated[
             str | None,

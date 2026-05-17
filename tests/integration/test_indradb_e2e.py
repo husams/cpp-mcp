@@ -1,4 +1,4 @@
-"""Real IndraDB end-to-end tests for cpp_export_to_graphdb.
+"""Real IndraDB end-to-end tests for ingest_code.
 
 Covers:
   SC-V4-2-01 — test skipped when INDRADB_TEST_URI unset (fixture-level skip)
@@ -105,7 +105,7 @@ async def test_sc_v4_2_03_export_writes_expected_counts(
     first run.  Until they are set, the test validates relational constraints only.
     """
     result = await mcp_client.call_tool(
-        "cpp_export_to_graphdb",
+        "ingest_code",
         {
             "file_path_or_dir": _OS_CC,
             "build_path": _BUILD_PATH,
@@ -117,7 +117,7 @@ async def test_sc_v4_2_03_export_writes_expected_counts(
     data: dict[str, Any] = result.data  # type: ignore[assignment]
 
     assert "code" not in data, (
-        f"Unexpected error envelope from cpp_export_to_graphdb: code={data.get('code')!r}  "
+        f"Unexpected error envelope from ingest_code: code={data.get('code')!r}  "
         f"message={data.get('message')!r}"
     )
 
@@ -170,7 +170,7 @@ async def test_sc_v4_2_04_idempotent_reexport(
     }
 
     # First export — populate the daemon
-    first = await mcp_client.call_tool("cpp_export_to_graphdb", args)
+    first = await mcp_client.call_tool("ingest_code", args)
     assert first.data is not None, f"First export returned no data: {first!r}"
     first_data: dict[str, Any] = first.data  # type: ignore[assignment]
     assert "code" not in first_data, (
@@ -182,7 +182,7 @@ async def test_sc_v4_2_04_idempotent_reexport(
     )
 
     # Second export — must be idempotent (AC-2-4)
-    second = await mcp_client.call_tool("cpp_export_to_graphdb", args)
+    second = await mcp_client.call_tool("ingest_code", args)
     assert second.data is not None, f"Second export returned no data: {second!r}"
     second_data: dict[str, Any] = second.data  # type: ignore[assignment]
     assert "code" not in second_data, (

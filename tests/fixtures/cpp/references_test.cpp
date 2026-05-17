@@ -1,4 +1,4 @@
-// Fixture for cpp_get_references BDD tests.
+// Fixture for get_references BDD tests.
 // No system headers.
 
 int calculate(int a, int b) {

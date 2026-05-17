@@ -44,7 +44,7 @@ def set_default_flags_config(tmp_allowed_root: Path, ctx: dict[str, Any]) -> Non
 
 
 @requires_libclang
-@when("cpp_get_definition is called via app with build_path None for that file")
+@when("get_definition is called via app with build_path None for that file")
 def call_no_build_path_flags(
     ctx: dict[str, Any],
     tmp_allowed_root: Path,
@@ -68,7 +68,7 @@ def call_no_build_path_flags(
 
 
 @requires_libclang
-@when("cpp_get_definition is called via app with that build_path for that file")
+@when("get_definition is called via app with that build_path for that file")
 def call_with_empty_build_path(
     ctx: dict[str, Any],
     tmp_allowed_root: Path,

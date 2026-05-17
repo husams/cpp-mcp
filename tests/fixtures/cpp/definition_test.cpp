@@ -1,4 +1,4 @@
-// Fixture for cpp_get_definition and cpp_get_references BDD tests.
+// Fixture for get_definition and get_references BDD tests.
 // No system headers — libclang may not have sysroot in test context.
 
 int foo(int a, int b) {

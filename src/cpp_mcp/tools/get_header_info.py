@@ -1,4 +1,4 @@
-"""cpp_get_header_info tool: inspect include graph and exported symbols.
+"""get_header_info tool: inspect include graph and exported symbols.
 
 S3: converted to sync def + @mcp.tool + Depends DI (ADR-3, ADR-7).
 US-5 / ADR-1 (OQ-6: orphaned = no symbol from include used in current TU).
@@ -17,7 +17,7 @@ from cpp_mcp.core.deps import get_allowed_roots, get_default_flags, get_session
 from cpp_mcp.core.error_envelope import wrap_tool
 from cpp_mcp.core.path_guard import validate_path
 
-_TOOL_NAME = "cpp_get_header_info"
+_TOOL_NAME = "get_header_info"
 
 
 def _cursor_kind_name(cursor: Any) -> str:
@@ -209,7 +209,7 @@ def _do_get_header_info(
     }
 
 
-def cpp_get_header_info(
+def get_header_info(
     file_path: str,
     allowed_roots: tuple[str, ...],
     default_flags: tuple[str, ...],
@@ -238,16 +238,16 @@ def cpp_get_header_info(
 
 
 def _register(mcp: Any) -> None:
-    """Register cpp_get_header_info against *mcp*. Called by build_server()."""
+    """Register get_header_info against *mcp*. Called by build_server()."""
 
     @mcp.tool(  # type: ignore[untyped-decorator]
-        name="cpp_get_header_info",
+        name="get_header_info",
         description=(
             "Inspect the include graph and exported symbols for a C++ header or source file."
         ),
     )
     @wrap_tool(_TOOL_NAME)
-    def cpp_get_header_info_tool(
+    def get_header_info_tool(
         file_path: Annotated[str, "Absolute path to the C++ header or source file."],
         build_path: Annotated[
             str | None,

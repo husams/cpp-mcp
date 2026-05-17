@@ -1,4 +1,4 @@
-"""cpp_get_references — find all usages of a C++ symbol in the current TU.
+"""get_references — find all usages of a C++ symbol in the current TU.
 
 S3: converted to sync def + @mcp.tool + Depends DI (ADR-3, ADR-7).
 
@@ -143,14 +143,14 @@ def get_references(
 
 
 def _register(mcp: Any) -> None:
-    """Register cpp_get_references against *mcp*. Called by build_server()."""
+    """Register get_references against *mcp*. Called by build_server()."""
 
     @mcp.tool(  # type: ignore[untyped-decorator]
-        name="cpp_get_references",
+        name="get_references",
         description="Find all usages of a C++ symbol within the current translation unit.",
     )
-    @wrap_tool("cpp_get_references")
-    def cpp_get_references(
+    @wrap_tool("get_references")
+    def get_references_tool(
         file_path: Annotated[str, "Absolute path to the C++ source file."],
         line: Annotated[int, "1-based line number of the symbol."],
         col: Annotated[int, "1-based column number of the symbol."],

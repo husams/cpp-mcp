@@ -1,6 +1,6 @@
-"""BDD tests for cpp_get_ast (Story 6, US-4).
+"""BDD tests for get_ast (Story 6, US-4).
 
-pytest-bdd step definitions for tests/bdd/features/cpp_get_ast.feature.
+pytest-bdd step definitions for tests/bdd/features/get_ast.feature.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from pytest_bdd import given, parsers, scenarios, then, when
 
 from tests.bdd.conftest import copy_fixture, make_nonexistent_path
 
-scenarios("features/cpp_get_ast.feature")
+scenarios("features/get_ast.feature")
 
 # ---------------------------------------------------------------------------
 # Given steps
@@ -36,13 +36,13 @@ def _fixture_file_exists(name: str, ctx: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
-@when('cpp_get_ast is called with format="json"')
+@when('get_ast is called with format="json"')
 def _call_ast_json(clang_session: Any, ctx: dict[str, Any]) -> None:
 
-    from cpp_mcp.tools.get_ast import cpp_get_ast
+    from cpp_mcp.tools.get_ast import get_ast
 
     file_path = str(ctx["root"] / "ast_test.cpp")
-    ctx["response"] = cpp_get_ast(
+    ctx["response"] = get_ast(
         file_path=file_path,
         allowed_roots=ctx["allowed_roots"],
         default_flags=ctx["default_flags"],
@@ -51,13 +51,13 @@ def _call_ast_json(clang_session: Any, ctx: dict[str, Any]) -> None:
     )
 
 
-@when('cpp_get_ast is called with format="graph"')
+@when('get_ast is called with format="graph"')
 def _call_ast_graph(clang_session: Any, ctx: dict[str, Any]) -> None:
 
-    from cpp_mcp.tools.get_ast import cpp_get_ast
+    from cpp_mcp.tools.get_ast import get_ast
 
     file_path = str(ctx["root"] / "ast_test.cpp")
-    ctx["response"] = cpp_get_ast(
+    ctx["response"] = get_ast(
         file_path=file_path,
         allowed_roots=ctx["allowed_roots"],
         default_flags=ctx["default_flags"],
@@ -66,13 +66,13 @@ def _call_ast_graph(clang_session: Any, ctx: dict[str, Any]) -> None:
     )
 
 
-@when('cpp_get_ast is called with format="json" and depth=2')
+@when('get_ast is called with format="json" and depth=2')
 def _call_ast_depth2(clang_session: Any, ctx: dict[str, Any]) -> None:
 
-    from cpp_mcp.tools.get_ast import cpp_get_ast
+    from cpp_mcp.tools.get_ast import get_ast
 
     file_path = str(ctx["root"] / "ast_test.cpp")
-    ctx["response"] = cpp_get_ast(
+    ctx["response"] = get_ast(
         file_path=file_path,
         allowed_roots=ctx["allowed_roots"],
         default_flags=ctx["default_flags"],
@@ -83,13 +83,13 @@ def _call_ast_depth2(clang_session: Any, ctx: dict[str, Any]) -> None:
     ctx["depth_limit"] = 2
 
 
-@when('cpp_get_ast is called with format="json" and no depth')
+@when('get_ast is called with format="json" and no depth')
 def _call_ast_no_depth(clang_session: Any, ctx: dict[str, Any]) -> None:
 
-    from cpp_mcp.tools.get_ast import cpp_get_ast
+    from cpp_mcp.tools.get_ast import get_ast
 
     file_path = str(ctx["root"] / "ast_test.cpp")
-    ctx["response"] = cpp_get_ast(
+    ctx["response"] = get_ast(
         file_path=file_path,
         allowed_roots=ctx["allowed_roots"],
         default_flags=ctx["default_flags"],
@@ -99,13 +99,13 @@ def _call_ast_no_depth(clang_session: Any, ctx: dict[str, Any]) -> None:
     ctx["depth_limit"] = 3
 
 
-@when("cpp_get_ast is called with start_line=1 and end_line=10")
+@when("get_ast is called with start_line=1 and end_line=10")
 def _call_ast_range(clang_session: Any, ctx: dict[str, Any]) -> None:
 
-    from cpp_mcp.tools.get_ast import cpp_get_ast
+    from cpp_mcp.tools.get_ast import get_ast
 
     file_path = str(ctx["root"] / "ast_test.cpp")
-    ctx["response"] = cpp_get_ast(
+    ctx["response"] = get_ast(
         file_path=file_path,
         allowed_roots=ctx["allowed_roots"],
         default_flags=ctx["default_flags"],
@@ -118,13 +118,13 @@ def _call_ast_range(clang_session: Any, ctx: dict[str, Any]) -> None:
     ctx["range_hi"] = 10
 
 
-@when(parsers.parse('cpp_get_ast is called on "{name}" with format="json"'))
+@when(parsers.parse('get_ast is called on "{name}" with format="json"'))
 def _call_ast_named_file(name: str, clang_session: Any, ctx: dict[str, Any]) -> None:
 
-    from cpp_mcp.tools.get_ast import cpp_get_ast
+    from cpp_mcp.tools.get_ast import get_ast
 
     file_path = str(ctx["root"] / name)
-    ctx["response"] = cpp_get_ast(
+    ctx["response"] = get_ast(
         file_path=file_path,
         allowed_roots=ctx["allowed_roots"],
         default_flags=ctx["default_flags"],
@@ -133,10 +133,10 @@ def _call_ast_named_file(name: str, clang_session: Any, ctx: dict[str, Any]) -> 
     )
 
 
-@when("cpp_get_ast is called on a non-existent file")
+@when("get_ast is called on a non-existent file")
 def _call_ast_nonexistent(ctx: dict[str, Any]) -> None:
     from cpp_mcp.core.error_envelope import ErrorCode, build_error
-    from cpp_mcp.tools.get_ast import cpp_get_ast
+    from cpp_mcp.tools.get_ast import get_ast
 
     file_path = make_nonexistent_path(ctx["root"])
 
@@ -149,7 +149,7 @@ def _call_ast_nonexistent(ctx: dict[str, Any]) -> None:
         import asyncio as aio
 
         result = aio.run(
-            cpp_get_ast(
+            get_ast(
                 file_path=file_path,
                 allowed_roots=ctx["allowed_roots"],
                 default_flags=ctx["default_flags"],
@@ -160,14 +160,14 @@ def _call_ast_nonexistent(ctx: dict[str, Any]) -> None:
     except Exception as exc:
         from cpp_mcp.core.error_envelope import ErrorCode, build_error
 
-        ctx["response"] = build_error(ErrorCode.FILE_NOT_FOUND, str(exc), "cpp_get_ast", "test")
+        ctx["response"] = build_error(ErrorCode.FILE_NOT_FOUND, str(exc), "get_ast", "test")
 
 
-@when("cpp_get_ast is called with start_line=30 and end_line=10")
+@when("get_ast is called with start_line=30 and end_line=10")
 def _call_ast_invalid_range(ctx: dict[str, Any]) -> None:
 
     from cpp_mcp.core.error_envelope import ErrorCode, InvalidRangeError, build_error
-    from cpp_mcp.tools.get_ast import cpp_get_ast
+    from cpp_mcp.tools.get_ast import get_ast
 
     file_path = str(ctx["root"] / "ast_test.cpp")
 
@@ -176,7 +176,7 @@ def _call_ast_invalid_range(ctx: dict[str, Any]) -> None:
             raise RuntimeError("should not be called")
 
     try:
-        result = cpp_get_ast(
+        result = get_ast(
             file_path=file_path,
             allowed_roots=ctx["allowed_roots"],
             default_flags=ctx["default_flags"],
@@ -186,21 +186,21 @@ def _call_ast_invalid_range(ctx: dict[str, Any]) -> None:
         )
         ctx["response"] = result
     except InvalidRangeError as exc:
-        ctx["response"] = build_error(ErrorCode.INVALID_RANGE, str(exc), "cpp_get_ast", "test")
+        ctx["response"] = build_error(ErrorCode.INVALID_RANGE, str(exc), "get_ast", "test")
 
 
-@when(parsers.parse('cpp_get_ast is called with file_path "{raw_path}"'))
+@when(parsers.parse('get_ast is called with file_path "{raw_path}"'))
 def _call_ast_path_traversal(raw_path: str, ctx: dict[str, Any]) -> None:
 
     from cpp_mcp.core.error_envelope import ErrorCode, PathViolationError, build_error
-    from cpp_mcp.tools.get_ast import cpp_get_ast
+    from cpp_mcp.tools.get_ast import get_ast
 
     class _FakeSession:
         async def parse(self, *a: Any, **kw: Any) -> Any:  # pragma: no cover
             raise RuntimeError("should not be called")
 
     try:
-        result = cpp_get_ast(
+        result = get_ast(
             file_path=raw_path,
             allowed_roots=ctx["allowed_roots"],
             default_flags=ctx["default_flags"],
@@ -208,16 +208,16 @@ def _call_ast_path_traversal(raw_path: str, ctx: dict[str, Any]) -> None:
         )
         ctx["response"] = result
     except PathViolationError as exc:
-        ctx["response"] = build_error(ErrorCode.PATH_VIOLATION, str(exc), "cpp_get_ast", "test")
+        ctx["response"] = build_error(ErrorCode.PATH_VIOLATION, str(exc), "get_ast", "test")
 
 
-@when("cpp_get_ast is called with no build_path")
+@when("get_ast is called with no build_path")
 def _call_ast_no_build_path(clang_session: Any, ctx: dict[str, Any]) -> None:
 
-    from cpp_mcp.tools.get_ast import cpp_get_ast
+    from cpp_mcp.tools.get_ast import get_ast
 
     file_path = str(ctx["root"] / "ast_test.cpp")
-    ctx["response"] = cpp_get_ast(
+    ctx["response"] = get_ast(
         file_path=file_path,
         allowed_roots=ctx["allowed_roots"],
         default_flags=ctx["default_flags"],

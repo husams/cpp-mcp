@@ -1,4 +1,4 @@
-// Fixture for cpp_get_type_info BDD tests.
+// Fixture for get_type_info BDD tests.
 // No system headers — uses only built-in types and homegrown template.
 
 // Line 6: int variable

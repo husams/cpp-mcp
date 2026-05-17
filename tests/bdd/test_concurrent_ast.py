@@ -1,4 +1,4 @@
-"""BDD-style test: 3 concurrent HTTP cpp_get_ast calls on same file.
+"""BDD-style test: 3 concurrent HTTP get_ast calls on same file.
 
 Implements SC_USM7_3: verifies thread-affinity (executor.submit.result()),
 cache correctness (parse_count == 1 after first hit), and no libclang crashes.
@@ -110,7 +110,7 @@ def http_server_for_concurrent(
 def test_three_concurrent_http_ast_calls_all_succeed(
     http_server_for_concurrent: dict[str, Any],
 ) -> None:
-    """SC_USM7_3: 3 concurrent HTTP cpp_get_ast calls succeed; no libclang crash."""
+    """SC_USM7_3: 3 concurrent HTTP get_ast calls succeed; no libclang crash."""
     from mcp import ClientSession
     from mcp.client.streamable_http import streamable_http_client
 
@@ -125,7 +125,7 @@ def test_three_concurrent_http_ast_calls_all_succeed(
         ):
             await client.initialize()
             result = await client.call_tool(
-                "cpp_get_ast",
+                "get_ast",
                 {"file_path": file_path, "format": "json"},
             )
             # Extract the structured payload from the first content item

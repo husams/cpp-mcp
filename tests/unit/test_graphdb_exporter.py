@@ -28,7 +28,7 @@ from cpp_mcp.graphdb.schema import (
     EDGE_REFERENCES,
     NODE_FILE,
 )
-from cpp_mcp.tools.export_to_graphdb import cpp_export_to_graphdb
+from cpp_mcp.tools.ingest_code import ingest_code
 
 # ---------------------------------------------------------------------------
 # In-memory fake driver
@@ -473,7 +473,7 @@ def test_references_edge_top_level_uses_file_usr(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# cpp_export_to_graphdb — INVALID_ARGUMENT validation (AC-9)
+# ingest_code — INVALID_ARGUMENT validation (AC-9)
 # ---------------------------------------------------------------------------
 
 
@@ -486,7 +486,7 @@ def test_invalid_argument_missing_db_uri(tmp_path: Path) -> None:
     target.write_text("")
 
     with pytest.raises(InvalidArgumentError, match="db_uri"):
-        cpp_export_to_graphdb(
+        ingest_code(
             file_path_or_dir=str(target),
             build_path=str(build),
             db_uri=None,
@@ -506,7 +506,7 @@ def test_invalid_argument_empty_db_uri(tmp_path: Path) -> None:
     target.write_text("")
 
     with pytest.raises(InvalidArgumentError, match="db_uri"):
-        cpp_export_to_graphdb(
+        ingest_code(
             file_path_or_dir=str(target),
             build_path=str(build),
             db_uri="",
@@ -524,7 +524,7 @@ def test_invalid_argument_missing_build_path(tmp_path: Path) -> None:
     target.write_text("")
 
     with pytest.raises(InvalidArgumentError, match="build_path"):
-        cpp_export_to_graphdb(
+        ingest_code(
             file_path_or_dir=str(target),
             build_path=None,
             db_uri="bolt://localhost:7687",
@@ -536,7 +536,7 @@ def test_invalid_argument_missing_build_path(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# cpp_export_to_graphdb — DB_UNREACHABLE (AC-3)
+# ingest_code — DB_UNREACHABLE (AC-3)
 # ---------------------------------------------------------------------------
 
 
@@ -551,10 +551,10 @@ def test_db_unreachable(tmp_path: Path) -> None:
     fake = FakeGraphDriver(fail_on_connect=True)
 
     with (
-        patch("cpp_mcp.tools.export_to_graphdb.select_driver", return_value=fake),
+        patch("cpp_mcp.tools.ingest_code.select_driver", return_value=fake),
         pytest.raises(DBUnreachableError),
     ):
-        cpp_export_to_graphdb(
+        ingest_code(
             file_path_or_dir=str(target),
             build_path=str(build),
             db_uri="bolt://unreachable:7687",
@@ -566,7 +566,7 @@ def test_db_unreachable(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# cpp_export_to_graphdb — happy path with fake driver (AC-1, AC-2)
+# ingest_code — happy path with fake driver (AC-1, AC-2)
 # ---------------------------------------------------------------------------
 
 
@@ -581,8 +581,8 @@ def test_happy_path_single_file(tmp_path: Path) -> None:
     fake = FakeGraphDriver()
     session = _make_session()
 
-    with patch("cpp_mcp.tools.export_to_graphdb.select_driver", return_value=fake):
-        result = cpp_export_to_graphdb(
+    with patch("cpp_mcp.tools.ingest_code.select_driver", return_value=fake):
+        result = ingest_code(
             file_path_or_dir=str(target),
             build_path=str(build),
             db_uri="bolt://localhost:7687",
@@ -598,7 +598,7 @@ def test_happy_path_single_file(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# cpp_export_to_graphdb — partial failure: good files committed (AC-5)
+# ingest_code — partial failure: good files committed (AC-5)
 # ---------------------------------------------------------------------------
 
 
@@ -629,8 +629,8 @@ def test_partial_failure_continues(tmp_path: Path) -> None:
 
     fake = FakeGraphDriver()
 
-    with patch("cpp_mcp.tools.export_to_graphdb.select_driver", return_value=fake):
-        result = cpp_export_to_graphdb(
+    with patch("cpp_mcp.tools.ingest_code.select_driver", return_value=fake):
+        result = ingest_code(
             file_path_or_dir=str(root),
             build_path=str(build),
             db_uri="bolt://localhost:7687",
@@ -664,8 +664,8 @@ def test_source_files_unchanged(tmp_path: Path) -> None:
     fake = FakeGraphDriver()
     session = _make_session()
 
-    with patch("cpp_mcp.tools.export_to_graphdb.select_driver", return_value=fake):
-        cpp_export_to_graphdb(
+    with patch("cpp_mcp.tools.ingest_code.select_driver", return_value=fake):
+        ingest_code(
             file_path_or_dir=str(target),
             build_path=str(build),
             db_uri="bolt://localhost:7687",

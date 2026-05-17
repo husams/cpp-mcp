@@ -7,7 +7,7 @@ Feature: Read-Only Enforcement (US-11)
   Scenario: Navigation tools make no filesystem writes
     Given the file "tiny.cpp" is copied to the read-only root
     And the mtime of that file is recorded
-    When cpp_get_definition is called via the app for that file at line 1 col 5
+    When get_definition is called via the app for that file at line 1 col 5
     Then no error envelope is returned
     And the mtime of that file is unchanged
 
@@ -20,12 +20,12 @@ Feature: Read-Only Enforcement (US-11)
 
     Examples:
       | tool_name                  |
-      | cpp_get_definition         |
-      | cpp_get_references         |
-      | cpp_get_type_info          |
-      | cpp_get_ast                |
-      | cpp_get_header_info        |
-      | cpp_get_preprocessor_state |
+      | get_definition         |
+      | get_references         |
+      | get_type_info          |
+      | get_ast                |
+      | get_header_info        |
+      | get_preprocessor_state |
 
   @SC_US_11_3
   Scenario: No write-back tool endpoint is exposed

@@ -4,7 +4,7 @@ Uses the official MCP client (stdio_client + ClientSession) to spawn the server
 subprocess and exercise it over stdin/stdout.
 
 QA additions (over developer baseline):
-  - SC_US_14_3 now asserts all 7 tools (including cpp_export_to_graphdb).
+  - SC_US_14_3 now asserts all 7 tools (including ingest_code).
   - SC_US_14_CALL_ENVELOPE: subprocess tools/call with path-traversal input
     must return a structured error envelope, not a raw MCP error or traceback.
 """
@@ -100,7 +100,7 @@ def client_list_tools(ctx: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
-@when("the client calls cpp_get_definition with a path-traversal file_path")
+@when("the client calls get_definition with a path-traversal file_path")
 def client_call_tool_path_violation(ctx: dict[str, Any]) -> None:
     """Dispatch a real tools/call over stdio and capture the raw result dict.
 
@@ -129,7 +129,7 @@ def client_call_tool_path_violation(ctx: dict[str, Any]) -> None:
             # ContentBlock objects.  For our tools, the first block's text is
             # the JSON-serialised dict returned by the handler.
             result = await client.call_tool(
-                "cpp_get_definition",
+                "get_definition",
                 {"file_path": "../../etc/passwd", "line": 1, "col": 1},
             )
             ctx["call_result_raw"] = result
@@ -153,41 +153,41 @@ def assert_initialize_ok(ctx: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
-@then('the tools list contains "cpp_get_definition"')
+@then('the tools list contains "get_definition"')
 def assert_has_get_definition(ctx: dict[str, Any]) -> None:
-    assert "cpp_get_definition" in ctx["tools"], f"tools: {ctx['tools']}"
+    assert "get_definition" in ctx["tools"], f"tools: {ctx['tools']}"
 
 
-@then('the tools list contains "cpp_get_references"')
+@then('the tools list contains "get_references"')
 def assert_has_get_references(ctx: dict[str, Any]) -> None:
-    assert "cpp_get_references" in ctx["tools"]
+    assert "get_references" in ctx["tools"]
 
 
-@then('the tools list contains "cpp_get_type_info"')
+@then('the tools list contains "get_type_info"')
 def assert_has_get_type_info(ctx: dict[str, Any]) -> None:
-    assert "cpp_get_type_info" in ctx["tools"]
+    assert "get_type_info" in ctx["tools"]
 
 
-@then('the tools list contains "cpp_get_ast"')
+@then('the tools list contains "get_ast"')
 def assert_has_get_ast(ctx: dict[str, Any]) -> None:
-    assert "cpp_get_ast" in ctx["tools"]
+    assert "get_ast" in ctx["tools"]
 
 
-@then('the tools list contains "cpp_get_header_info"')
+@then('the tools list contains "get_header_info"')
 def assert_has_get_header_info(ctx: dict[str, Any]) -> None:
-    assert "cpp_get_header_info" in ctx["tools"]
+    assert "get_header_info" in ctx["tools"]
 
 
-@then('the tools list contains "cpp_get_preprocessor_state"')
+@then('the tools list contains "get_preprocessor_state"')
 def assert_has_get_preprocessor_state(ctx: dict[str, Any]) -> None:
-    assert "cpp_get_preprocessor_state" in ctx["tools"]
+    assert "get_preprocessor_state" in ctx["tools"]
 
 
-@then('the tools list contains "cpp_export_to_graphdb"')
+@then('the tools list contains "ingest_code"')
 def assert_has_export_to_graphdb(ctx: dict[str, Any]) -> None:
-    """QA addition: Story 8 wired cpp_export_to_graphdb — verify it appears over stdio."""
-    assert "cpp_export_to_graphdb" in ctx["tools"], (
-        f"cpp_export_to_graphdb missing from tools/list over stdio. Got: {ctx['tools']}"
+    """QA addition: Story 8 wired ingest_code — verify it appears over stdio."""
+    assert "ingest_code" in ctx["tools"], (
+        f"ingest_code missing from tools/list over stdio. Got: {ctx['tools']}"
     )
 
 

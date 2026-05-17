@@ -33,7 +33,7 @@ def build_app_stateless(tmp_allowed_root: Path, ctx: dict[str, Any]) -> None:
 
 
 @requires_libclang
-@when("cpp_get_definition is called via app with build_path None for that file")
+@when("get_definition is called via app with build_path None for that file")
 def call_no_build_path(
     ctx: dict[str, Any],
     tmp_allowed_root: Path,
@@ -57,7 +57,7 @@ def call_no_build_path(
 
 
 @requires_libclang
-@when("cpp_get_definition is called via app with a non-existent build_path for that file")
+@when("get_definition is called via app with a non-existent build_path for that file")
 def call_nonexistent_build_path(
     ctx: dict[str, Any],
     tmp_allowed_root: Path,

@@ -1,4 +1,4 @@
-"""BDD tests for cpp_export_to_graphdb (Story 8 / US-7).
+"""BDD tests for ingest_code (Story 8 / US-7; v5 rename from export_to_graphdb).
 
 Uses the FakeGraphDriver — no live Neo4j required.
 Live Neo4j scenarios are tagged @neo4j and auto-skipped when NEO4J_TEST_URI
@@ -85,19 +85,19 @@ def _wrap_exc(exc: Exception, request_id: str = "bdd-test") -> dict[str, Any]:
     ]
     for exc_type, code in code_map:
         if isinstance(exc, exc_type):
-            return build_error(code, str(exc), "cpp_export_to_graphdb", request_id)
+            return build_error(code, str(exc), "ingest_code", request_id)
     return build_error(
         ErrorCode.INTERNAL_ERROR,
         "An internal error occurred.",
-        "cpp_export_to_graphdb",
+        "ingest_code",
         request_id,
     )
 
 
 def _invoke(ctx: dict[str, Any]) -> dict[str, Any]:
-    """Call the cpp_export_to_graphdb handler with select_driver patched to a fake."""
+    """Call the ingest_code handler with select_driver patched to a fake."""
     from cpp_mcp.core.clang_session import ClangSession
-    from cpp_mcp.tools.export_to_graphdb import cpp_export_to_graphdb
+    from cpp_mcp.tools.ingest_code import ingest_code
 
     session = ClangSession(capacity=4)
 
@@ -116,9 +116,9 @@ def _invoke(ctx: dict[str, Any]) -> dict[str, Any]:
 
     # Patch select_driver (the new dispatch point) to return the fake driver.
     # This also prevents Neo4jDriver from being imported when neo4j is absent.
-    with patch("cpp_mcp.tools.export_to_graphdb.select_driver", return_value=fake_driver):
+    with patch("cpp_mcp.tools.ingest_code.select_driver", return_value=fake_driver):
         try:
-            result = cpp_export_to_graphdb(**kwargs)
+            result = ingest_code(**kwargs)
         except Exception as exc:
             result = _wrap_exc(exc)
 
@@ -128,13 +128,13 @@ def _invoke(ctx: dict[str, Any]) -> dict[str, Any]:
 
 
 def _invoke_no_patch(ctx: dict[str, Any]) -> dict[str, Any]:
-    """Call the cpp_export_to_graphdb handler WITHOUT patching select_driver.
+    """Call the ingest_code handler WITHOUT patching select_driver.
 
     Used for unknown-scheme validation-order tests where the real dispatch
     logic must run.
     """
     from cpp_mcp.core.clang_session import ClangSession
-    from cpp_mcp.tools.export_to_graphdb import cpp_export_to_graphdb
+    from cpp_mcp.tools.ingest_code import ingest_code
 
     session = ClangSession(capacity=4)
 
@@ -149,7 +149,7 @@ def _invoke_no_patch(ctx: dict[str, Any]) -> dict[str, Any]:
     }
 
     try:
-        result = cpp_export_to_graphdb(**kwargs)
+        result = ingest_code(**kwargs)
     except Exception as exc:
         result = _wrap_exc(exc)
 
@@ -246,71 +246,71 @@ def given_partial_failure_files(ctx: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
-@when("cpp_export_to_graphdb is called with that file and a build path")
+@when("ingest_code is called with that file and a build path")
 def when_export_single_file(ctx: dict[str, Any]) -> None:
     _invoke(ctx)
 
 
-@when('cpp_export_to_graphdb is called with file "main.cpp" and unreachable db_uri')
+@when('ingest_code is called with file "main.cpp" and unreachable db_uri')
 def when_export_unreachable(ctx: dict[str, Any]) -> None:
     ctx["db_uri"] = "bolt://unreachable-host:7687"
     _invoke(ctx)
 
 
-@when("cpp_export_to_graphdb is called with the directory as input")
+@when("ingest_code is called with the directory as input")
 def when_export_directory(ctx: dict[str, Any]) -> None:
     _invoke(ctx)
 
 
-@when("cpp_export_to_graphdb is called with the directory")
+@when("ingest_code is called with the directory")
 def when_export_directory_partial(ctx: dict[str, Any]) -> None:
     _invoke(ctx)
 
 
-@when("cpp_export_to_graphdb is called with a non-existent file path")
+@when("ingest_code is called with a non-existent file path")
 def when_export_nonexistent(ctx: dict[str, Any]) -> None:
     ctx["file_path_or_dir"] = str(ctx["root"] / "nonexistent_file_xyz.cpp")
     _invoke(ctx)
 
 
-@when("cpp_export_to_graphdb is called with file_path_or_dir containing path traversal")
+@when("ingest_code is called with file_path_or_dir containing path traversal")
 def when_export_path_traversal_input(ctx: dict[str, Any]) -> None:
     ctx["file_path_or_dir"] = "../../etc/passwd"
     _invoke(ctx)
 
 
-@when("cpp_export_to_graphdb is called with build_path containing path traversal")
+@when("ingest_code is called with build_path containing path traversal")
 def when_export_path_traversal_build(ctx: dict[str, Any]) -> None:
     ctx["build_path"] = "../../etc"
     _invoke(ctx)
 
 
-@when("cpp_export_to_graphdb is called without a db_uri")
+@when("ingest_code is called without a db_uri")
 def when_export_no_db_uri(ctx: dict[str, Any]) -> None:
     ctx["db_uri"] = None
     _invoke(ctx)
 
 
-@when("cpp_export_to_graphdb is called without a build_path")
+@when("ingest_code is called without a build_path")
 def when_export_no_build_path(ctx: dict[str, Any]) -> None:
     ctx["build_path"] = None
     _invoke(ctx)
 
 
-@when("cpp_export_to_graphdb is called with an empty db_uri")
+@when("ingest_code is called with an empty db_uri")
 def when_export_empty_db_uri(ctx: dict[str, Any]) -> None:
     ctx["db_uri"] = ""
     _invoke(ctx)
 
 
-@when("cpp_export_to_graphdb is called with traversal path and unknown scheme db_uri")
+@when("ingest_code is called with traversal path and unknown scheme db_uri")
 def when_export_traversal_unknown_scheme(ctx: dict[str, Any]) -> None:
     ctx["file_path_or_dir"] = "../../etc/passwd"
     ctx["db_uri"] = "mysql://localhost:3306"
     _invoke_no_patch(ctx)
 
 
-@when("cpp_export_to_graphdb is called with non-existent path and unknown scheme db_uri")
+@when("ingest_code is called with non-existent path and unknown scheme db_uri")
 def when_export_nonexistent_unknown_scheme(ctx: dict[str, Any]) -> None:
     ctx["file_path_or_dir"] = str(ctx["root"] / "nonexistent_xyz.cpp")
     ctx["db_uri"] = "surrealdb://localhost:8000"

@@ -58,18 +58,18 @@ def test_parity_fails_on_rename() -> None:
     Injects a renamed property into a fake live schema and asserts that the
     property-name check raises AssertionError.
     """
-    original = EXPECTED["cpp_get_definition"]
+    original = EXPECTED["get_definition"]
     props = deepcopy(original["properties"])
     props["file"] = props.pop("file_path")  # rename file_path -> file
     fake_live_schemas: dict[str, dict[str, Any]] = {
-        "cpp_get_definition": {
+        "get_definition": {
             **original,
             "properties": props,
         }
     }
 
     with pytest.raises(AssertionError, match="property name mismatch"):
-        _assert_property_names_match(fake_live_schemas, "cpp_get_definition")
+        _assert_property_names_match(fake_live_schemas, "get_definition")
 
 
 # ---------------------------------------------------------------------------
@@ -83,18 +83,18 @@ def test_parity_fails_on_empty_description() -> None:
     Injects a blank description for file_path in a fake live schema and asserts
     that the description-presence check raises AssertionError.
     """
-    original = EXPECTED["cpp_get_definition"]
+    original = EXPECTED["get_definition"]
     props = deepcopy(original["properties"])
     props["file_path"] = {**props["file_path"], "description": ""}
     fake_live_schemas: dict[str, dict[str, Any]] = {
-        "cpp_get_definition": {
+        "get_definition": {
             **original,
             "properties": props,
         }
     }
 
     with pytest.raises(AssertionError, match="missing or empty description"):
-        _assert_all_properties_have_descriptions(fake_live_schemas, "cpp_get_definition")
+        _assert_all_properties_have_descriptions(fake_live_schemas, "get_definition")
 
 
 # ---------------------------------------------------------------------------

@@ -28,14 +28,14 @@ def mcp_configured_envelope(tmp_allowed_root: Path, ctx: dict[str, Any]) -> None
     ctx["allowed_roots"] = (str(tmp_allowed_root),)
 
 
-@when('cpp_get_definition is called via the app with path "../../etc/passwd" line 1 col 1')
+@when('get_definition is called via the app with path "../../etc/passwd" line 1 col 1')
 def call_via_app_path_traversal(ctx: dict[str, Any], default_flags: tuple[str, ...]) -> None:
     from cpp_mcp.core.error_envelope import wrap_tool
     from cpp_mcp.tools.get_definition import get_definition
 
     allowed_roots = ctx["allowed_roots"]
 
-    @wrap_tool("cpp_get_definition")
+    @wrap_tool("get_definition")
     async def _call() -> dict[str, Any]:
         return get_definition(
             file_path="../../etc/passwd",
@@ -55,7 +55,7 @@ def call_via_app_path_traversal(ctx: dict[str, Any], default_flags: tuple[str, .
 def inject_unexpected_exception(ctx: dict[str, Any]) -> None:
     from cpp_mcp.core.error_envelope import wrap_tool
 
-    @wrap_tool("cpp_get_definition")
+    @wrap_tool("get_definition")
     async def _bad_tool() -> dict[str, Any]:
         raise RuntimeError("unexpected boom")
 
@@ -73,9 +73,9 @@ def assert_non_empty_message(ctx: dict[str, Any]) -> None:
     assert msg, f"message is empty: {ctx['result']}"
 
 
-@then('the response has tool "cpp_get_definition"')
+@then('the response has tool "get_definition"')
 def assert_tool_name(ctx: dict[str, Any]) -> None:
-    assert ctx["result"].get("tool") == "cpp_get_definition", ctx["result"]
+    assert ctx["result"].get("tool") == "get_definition", ctx["result"]
 
 
 @then("the response has a request_id")

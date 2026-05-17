@@ -1,4 +1,4 @@
-"""BDD step implementations for cpp_get_references feature (Story 5 / US-2)."""
+"""BDD step implementations for get_references feature (Story 5 / US-2)."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from pytest_bdd import given, parsers, scenarios, then, when
 
 from tests.bdd.conftest import copy_fixture, make_nonexistent_path, requires_libclang
 
-scenarios("features/cpp_get_references.feature")
+scenarios("features/get_references.feature")
 
 
 # ---------------------------------------------------------------------------
@@ -44,7 +44,7 @@ def copy_definition_test_refs(tmp_allowed_root: Path, ctx: dict[str, Any]) -> No
 
 
 @requires_libclang
-@when(parsers.parse("cpp_get_references is called with that file at line {line:d} col {col:d}"))
+@when(parsers.parse("get_references is called with that file at line {line:d} col {col:d}"))
 def call_get_references(
     line: int,
     col: int,
@@ -78,17 +78,17 @@ def call_get_references(
         ctx["error"] = None
     except InvalidPositionError as exc:
         ctx["result"] = build_error(
-            ErrorCode.INVALID_POSITION, str(exc), "cpp_get_references", request_id
+            ErrorCode.INVALID_POSITION, str(exc), "get_references", request_id
         )
         ctx["error"] = None
     except (FileNotFoundError, FileNotFoundError_) as exc:
         ctx["result"] = build_error(
-            ErrorCode.FILE_NOT_FOUND, str(exc), "cpp_get_references", request_id
+            ErrorCode.FILE_NOT_FOUND, str(exc), "get_references", request_id
         )
         ctx["error"] = None
     except PathViolationError as exc:
         ctx["result"] = build_error(
-            ErrorCode.PATH_VIOLATION, str(exc), "cpp_get_references", request_id
+            ErrorCode.PATH_VIOLATION, str(exc), "get_references", request_id
         )
         ctx["error"] = None
     except Exception as exc:
@@ -97,9 +97,7 @@ def call_get_references(
 
 
 @when(
-    parsers.parse(
-        "cpp_get_references is called with a non-existent file at line {line:d} col {col:d}"
-    )
+    parsers.parse("get_references is called with a non-existent file at line {line:d} col {col:d}")
 )
 def call_get_references_nonexistent(
     line: int,
@@ -119,15 +117,13 @@ def call_get_references_nonexistent(
         ctx["error"] = None
     except FileNotFoundError as exc:
         ctx["result"] = build_error(
-            ErrorCode.FILE_NOT_FOUND, str(exc), "cpp_get_references", request_id
+            ErrorCode.FILE_NOT_FOUND, str(exc), "get_references", request_id
         )
         ctx["error"] = None
 
 
 @when(
-    parsers.parse(
-        'cpp_get_references is called with file_path "{path}" at line {line:d} col {col:d}'
-    )
+    parsers.parse('get_references is called with file_path "{path}" at line {line:d} col {col:d}')
 )
 def call_get_references_raw_path(
     path: str,
@@ -146,7 +142,7 @@ def call_get_references_raw_path(
         ctx["error"] = None
     except PathViolationError as exc:
         ctx["result"] = build_error(
-            ErrorCode.PATH_VIOLATION, str(exc), "cpp_get_references", request_id
+            ErrorCode.PATH_VIOLATION, str(exc), "get_references", request_id
         )
         ctx["error"] = None
 

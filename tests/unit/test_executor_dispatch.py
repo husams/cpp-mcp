@@ -105,8 +105,8 @@ class TestExecutorDispatch:
                 return t.fn
         raise KeyError(f"Tool {name!r} not found in registered tools")
 
-    def test_cpp_get_definition_calls_executor_submit(self, registered_tools: list[Any]) -> None:
-        fn = self._get_tool_fn(registered_tools, "cpp_get_definition")
+    def test_get_definition_calls_executor_submit(self, registered_tools: list[Any]) -> None:
+        fn = self._get_tool_fn(registered_tools, "get_definition")
         session, spy = _make_session_spy()
         fn(
             file_path="/tmp/fake.cpp",
@@ -119,8 +119,8 @@ class TestExecutorDispatch:
         )
         spy.assert_called_once()
 
-    def test_cpp_get_references_calls_executor_submit(self, registered_tools: list[Any]) -> None:
-        fn = self._get_tool_fn(registered_tools, "cpp_get_references")
+    def test_get_references_calls_executor_submit(self, registered_tools: list[Any]) -> None:
+        fn = self._get_tool_fn(registered_tools, "get_references")
         session, spy = _make_session_spy()
         fn(
             file_path="/tmp/fake.cpp",
@@ -133,8 +133,8 @@ class TestExecutorDispatch:
         )
         spy.assert_called_once()
 
-    def test_cpp_get_type_info_calls_executor_submit(self, registered_tools: list[Any]) -> None:
-        fn = self._get_tool_fn(registered_tools, "cpp_get_type_info")
+    def test_get_type_info_calls_executor_submit(self, registered_tools: list[Any]) -> None:
+        fn = self._get_tool_fn(registered_tools, "get_type_info")
         session, spy = _make_session_spy()
         fn(
             file_path="/tmp/fake.cpp",
@@ -147,8 +147,8 @@ class TestExecutorDispatch:
         )
         spy.assert_called_once()
 
-    def test_cpp_get_ast_calls_executor_submit(self, registered_tools: list[Any]) -> None:
-        fn = self._get_tool_fn(registered_tools, "cpp_get_ast")
+    def test_get_ast_calls_executor_submit(self, registered_tools: list[Any]) -> None:
+        fn = self._get_tool_fn(registered_tools, "get_ast")
         session, spy = _make_session_spy()
         fn(
             file_path="/tmp/fake.cpp",
@@ -161,8 +161,8 @@ class TestExecutorDispatch:
         )
         spy.assert_called_once()
 
-    def test_cpp_get_header_info_calls_executor_submit(self, registered_tools: list[Any]) -> None:
-        fn = self._get_tool_fn(registered_tools, "cpp_get_header_info")
+    def test_get_header_info_calls_executor_submit(self, registered_tools: list[Any]) -> None:
+        fn = self._get_tool_fn(registered_tools, "get_header_info")
         session, spy = _make_session_spy()
         fn(
             file_path="/tmp/fake.cpp",
@@ -173,10 +173,10 @@ class TestExecutorDispatch:
         )
         spy.assert_called_once()
 
-    def test_cpp_get_preprocessor_state_calls_executor_submit(
+    def test_get_preprocessor_state_calls_executor_submit(
         self, registered_tools: list[Any]
     ) -> None:
-        fn = self._get_tool_fn(registered_tools, "cpp_get_preprocessor_state")
+        fn = self._get_tool_fn(registered_tools, "get_preprocessor_state")
         session, spy = _make_session_spy()
         fn(
             file_path="/tmp/fake.cpp",
@@ -187,8 +187,8 @@ class TestExecutorDispatch:
         )
         spy.assert_called_once()
 
-    def test_cpp_export_to_graphdb_calls_executor_submit(self, registered_tools: list[Any]) -> None:
-        fn = self._get_tool_fn(registered_tools, "cpp_export_to_graphdb")
+    def test_ingest_code_calls_executor_submit(self, registered_tools: list[Any]) -> None:
+        fn = self._get_tool_fn(registered_tools, "ingest_code")
         session, spy = _make_session_spy()
         fn(
             file_path_or_dir="/tmp/fake.cpp",

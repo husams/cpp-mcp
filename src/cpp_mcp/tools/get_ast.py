@@ -1,4 +1,4 @@
-"""cpp_get_ast tool: return a hierarchical or graph-format annotated AST subtree.
+"""get_ast tool: return a hierarchical or graph-format annotated AST subtree.
 
 S3: converted to sync def + @mcp.tool + Depends DI (ADR-3, ADR-7).
 US-4 / ADR-5 (node + byte budget truncation), ADR-9 (PARSE_ERROR threshold).
@@ -34,7 +34,7 @@ from cpp_mcp.core.error_envelope import (
 )
 from cpp_mcp.core.path_guard import validate_path
 
-_TOOL_NAME = "cpp_get_ast"
+_TOOL_NAME = "get_ast"
 
 _DEFAULT_DEPTH = 3
 _DEFAULT_MAX_NODES = 5000
@@ -87,7 +87,7 @@ def _do_get_ast(
     }
 
 
-def cpp_get_ast(
+def get_ast(
     file_path: str,
     allowed_roots: tuple[str, ...],
     default_flags: tuple[str, ...],
@@ -134,16 +134,16 @@ def cpp_get_ast(
 
 
 def _register(mcp: Any) -> None:
-    """Register cpp_get_ast against *mcp*. Called by build_server()."""
+    """Register get_ast against *mcp*. Called by build_server()."""
 
     @mcp.tool(  # type: ignore[untyped-decorator]
-        name="cpp_get_ast",
+        name="get_ast",
         description=(
             "Return an annotated AST subtree in JSON or graph format for a C++ source file."
         ),
     )
     @wrap_tool(_TOOL_NAME)
-    def cpp_get_ast_tool(
+    def get_ast_tool(
         file_path: Annotated[str, "Absolute path to the C++ source file."],
         build_path: Annotated[
             str | None,

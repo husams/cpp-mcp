@@ -1,4 +1,4 @@
-// Fixture for cpp_get_ast BDD tests (Story 6).
+// Fixture for get_ast BDD tests (Story 6).
 // No system headers — libclang may not have access to sysroot in test context.
 // 50 lines with ~5 nesting levels.
 

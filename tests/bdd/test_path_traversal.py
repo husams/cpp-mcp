@@ -24,7 +24,7 @@ def copy_tiny_traversal(tmp_allowed_root: Path, ctx: dict[str, Any]) -> None:
     ctx["current_file"] = str(dest)
 
 
-@when('cpp_get_definition is called via the app with path "../../etc/passwd" line 1 col 1')
+@when('get_definition is called via the app with path "../../etc/passwd" line 1 col 1')
 def call_path_traversal_file(
     ctx: dict[str, Any],
     tmp_allowed_root: Path,
@@ -33,7 +33,7 @@ def call_path_traversal_file(
     from cpp_mcp.core.error_envelope import wrap_tool
     from cpp_mcp.tools.get_definition import get_definition
 
-    @wrap_tool("cpp_get_definition")
+    @wrap_tool("get_definition")
     async def _call() -> dict[str, Any]:
         return get_definition(
             file_path="../../etc/passwd",
@@ -49,7 +49,7 @@ def call_path_traversal_file(
     ctx["result"] = asyncio.run(_call())
 
 
-@when('cpp_get_definition is called with that file and bad build_path "../../etc"')
+@when('get_definition is called with that file and bad build_path "../../etc"')
 def call_path_traversal_build(
     ctx: dict[str, Any],
     tmp_allowed_root: Path,
@@ -58,7 +58,7 @@ def call_path_traversal_build(
     from cpp_mcp.core.error_envelope import wrap_tool
     from cpp_mcp.tools.get_definition import get_definition
 
-    @wrap_tool("cpp_get_definition")
+    @wrap_tool("get_definition")
     async def _call() -> dict[str, Any]:
         return get_definition(
             file_path=ctx["current_file"],
@@ -75,7 +75,7 @@ def call_path_traversal_build(
 
 
 @requires_libclang
-@when("cpp_get_ast is called via the app for that file")
+@when("get_ast is called via the app for that file")
 def call_get_ast_in_root(
     ctx: dict[str, Any],
     tmp_allowed_root: Path,
@@ -83,13 +83,13 @@ def call_get_ast_in_root(
 ) -> None:
     from cpp_mcp.core.clang_session import ClangSession
     from cpp_mcp.core.error_envelope import wrap_tool
-    from cpp_mcp.tools.get_ast import cpp_get_ast
+    from cpp_mcp.tools.get_ast import get_ast
 
     session = ClangSession(capacity=4)
 
-    @wrap_tool("cpp_get_ast")
+    @wrap_tool("get_ast")
     async def _call() -> dict[str, Any]:
-        return cpp_get_ast(
+        return get_ast(
             file_path=ctx["current_file"],
             allowed_roots=(str(tmp_allowed_root),),
             default_flags=default_flags,
@@ -110,7 +110,7 @@ def call_load_config_no_roots(ctx: dict[str, Any]) -> None:
         ctx["config_error"] = exc
 
 
-@when('cpp_get_definition is called via the app with path "/home/user/secret.cpp" line 1 col 1')
+@when('get_definition is called via the app with path "/home/user/secret.cpp" line 1 col 1')
 def call_outside_allowed_root(
     ctx: dict[str, Any],
     tmp_allowed_root: Path,
@@ -119,7 +119,7 @@ def call_outside_allowed_root(
     from cpp_mcp.core.error_envelope import wrap_tool
     from cpp_mcp.tools.get_definition import get_definition
 
-    @wrap_tool("cpp_get_definition")
+    @wrap_tool("get_definition")
     async def _call() -> dict[str, Any]:
         return get_definition(
             file_path="/home/user/secret.cpp",

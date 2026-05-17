@@ -6,9 +6,9 @@ Feature: Stateless Build Context (US-8)
   @SC_US_8_1
   Scenario: Two calls with different build_paths use independent flags
     Given the file "tiny.cpp" is in the allowed root for stateless test
-    When cpp_get_definition is called via app with build_path None for that file
+    When get_definition is called via app with build_path None for that file
     Then the response has flags_source "default"
-    When cpp_get_definition is called via app with a non-existent build_path for that file
+    When get_definition is called via app with a non-existent build_path for that file
     Then the response has flags_source "default"
 
   @SC_US_8_4

@@ -50,7 +50,7 @@ class TestDependencyMissingErrorClass:
 
 class TestDependencyMissingEnvelopeShape:
     _ENVELOPE_KEYS: frozenset[str] = frozenset({"code", "message", "tool", "request_id"})
-    _TOOL_NAME = "cpp_export_to_graphdb"
+    _TOOL_NAME = "ingest_code"
 
     def _make_result(self, msg: str) -> dict[str, str]:
         @wrap_tool(self._TOOL_NAME)

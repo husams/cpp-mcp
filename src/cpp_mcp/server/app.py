@@ -77,13 +77,13 @@ def build_server() -> FastMCP:
     # Import tool modules to trigger @mcp.tool registration.
     # Each module's _register(mcp) function wires the tool against this instance.
     from cpp_mcp.tools import (
-        export_to_graphdb,
         get_ast,
         get_definition,
         get_header_info,
         get_preprocessor_state,
         get_references,
         get_type_info,
+        ingest_code,
     )
 
     get_definition._register(mcp)
@@ -92,7 +92,7 @@ def build_server() -> FastMCP:
     get_ast._register(mcp)
     get_header_info._register(mcp)
     get_preprocessor_state._register(mcp)
-    export_to_graphdb._register(mcp)
+    ingest_code._register(mcp)
 
     @mcp.custom_route("/health", methods=["GET"])
     async def health(_: Request) -> PlainTextResponse:

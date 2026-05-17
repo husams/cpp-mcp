@@ -4,7 +4,7 @@ A local Python MCP (Model Context Protocol) server that wraps `libclang` to expo
 
 **Transport layer:** cpp-mcp uses [FastMCP](https://github.com/jlowin/fastmcp) (`~=3.1.0`) as its MCP transport layer. FastMCP provides production-quality stdio and HTTP/SSE transports, `@mcp.tool` decorator registration, auto-generated JSON schemas from type hints, `lifespan` context management for the libclang session, and `Depends`-based dependency injection. See [`.claude/handoff/v2/runbook.md`](.claude/handoff/v2/runbook.md) for startup instructions, upgrade-check procedure, and install-footprint audit.
 
-**453 tests pass** (unit + BDD). Python 3.11+. Tested on macOS and Linux.
+**618 tests pass** (unit + BDD). Python 3.11+. Tested on macOS and Linux.
 
 ---
 
@@ -47,10 +47,10 @@ uv sync
 # With development tools (ruff, mypy, pytest, hypothesis)
 uv sync --extra dev
 
-# With Neo4j graphdb support (for cpp_export_to_graphdb)
+# With Neo4j graphdb support (for ingest_code)
 uv sync --extra graphdb-neo4j
 
-# With IndraDB graphdb support (for cpp_export_to_graphdb)
+# With IndraDB graphdb support (for ingest_code)
 uv sync --extra graphdb-indradb
 
 # With both graphdb backends
@@ -85,7 +85,7 @@ export CPP_MCP_ALLOWED_ROOTS="/path/to/repo-a:/path/to/repo-b"
 | `CPP_MCP_ALLOWED_ROOTS` | **yes** | — | Colon-separated absolute paths the server may read. |
 | `CPP_MCP_DEFAULT_FLAGS` | no | `-std=c++20 -I. -x c++` | Compile flags when no `compile_commands.json` is found. |
 | `CPP_MCP_CACHE_CAPACITY` | no | `128` | LRU cache size. Use `16` on hosts with less than 4 GiB free RAM. |
-| `CPP_MCP_AST_MAX_NODES` | no | `5000` | Node-count ceiling for `cpp_get_ast`. |
+| `CPP_MCP_AST_MAX_NODES` | no | `5000` | Node-count ceiling for `get_ast`. |
 | `CPP_MCP_AST_MAX_BYTES` | no | `1048576` | Byte ceiling (1 MiB) for serialized AST responses. |
 | `CPP_MCP_LIBCLANG_PATH` | no | (auto-detected) | Absolute path to `libclang.so`/`libclang.dylib`. |
 | `CPP_MCP_LOG_LEVEL` | no | `INFO` | Python logging level. |
@@ -143,20 +143,20 @@ Add to `~/.claude/mcp.json`:
 
 | Tool | What it returns |
 |---|---|
-| `cpp_get_definition` | Jump-to-definition: `{file, line, col, usr, definition_found}` |
-| `cpp_get_references` | All references in the current TU: `[{file, line, col, context_snippet}]` |
-| `cpp_get_type_info` | `{display_type, canonical_type, size_bytes, alignment_bytes, is_pod, is_const, is_reference, is_pointer}` — resolves `auto` and templates |
-| `cpp_get_ast` | AST subtree with optional `depth`, `start_line`/`end_line`, and `format` (`json` or `graph`) |
-| `cpp_get_header_info` | Include graph + exported symbols + `missing_includes` + `orphaned_includes` |
-| `cpp_get_preprocessor_state` | Active macros (including transitive) + evaluated `#ifdef`/`#ifndef` conditionals |
-| `cpp_export_to_graphdb` | Export symbol graph to Neo4j via Bolt (requires `--extra graphdb`) |
+| `get_definition` | Jump-to-definition: `{file, line, col, usr, definition_found}` |
+| `get_references` | All references in the current TU: `[{file, line, col, context_snippet}]` |
+| `get_type_info` | `{display_type, canonical_type, size_bytes, alignment_bytes, is_pod, is_const, is_reference, is_pointer}` — resolves `auto` and templates |
+| `get_ast` | AST subtree with optional `depth`, `start_line`/`end_line`, and `format` (`json` or `graph`) |
+| `get_header_info` | Include graph + exported symbols + `missing_includes` + `orphaned_includes` |
+| `get_preprocessor_state` | Active macros (including transitive) + evaluated `#ifdef`/`#ifndef` conditionals |
+| `ingest_code` | Export symbol graph to Neo4j or IndraDB (requires `--extra graphdb`) |
 
 Every successful response includes `flags_source` (`"compilation_db"` or `"default"`), `cache_hit` (bool), and `request_id` (UUID4).
 
 Errors always use a structured envelope:
 
 ```json
-{ "code": "PATH_VIOLATION", "message": "...", "tool": "cpp_get_definition", "request_id": "..." }
+{ "code": "PATH_VIOLATION", "message": "...", "tool": "get_definition", "request_id": "..." }
 ```
 
 Valid codes: `FILE_NOT_FOUND`, `INVALID_POSITION`, `INVALID_RANGE`, `INVALID_ARGUMENT`, `PATH_VIOLATION`, `DEPENDENCY_MISSING`, `DB_UNREACHABLE`, `PARSE_ERROR`, `INTERNAL_ERROR`.
@@ -165,7 +165,7 @@ Valid codes: `FILE_NOT_FOUND`, `INVALID_POSITION`, `INVALID_RANGE`, `INVALID_ARG
 
 ## Graph database backends
 
-`cpp_export_to_graphdb` supports two backends selected automatically by URI scheme.
+`ingest_code` supports two backends selected automatically by URI scheme.
 
 ### Neo4j (default — Bolt)
 
@@ -254,7 +254,7 @@ INDRADB_AUTOSTART=1 uv run pytest -m "integration and indradb" tests/integration
 uv run pytest -q
 ```
 
-Expected: 327 passed, 1 skipped (Neo4j integration test — skipped when `NEO4J_TEST_URI` is unset).
+Expected: 618 passed, 6 skipped (env-gated: `INDRADB_TEST_URI`, `NEO4J_TEST_URI`, `COGNEE_BASE_URL` unset).
 
 Full pre-release verification:
 
@@ -264,6 +264,24 @@ uv run ruff check src tests
 uv run mypy --strict src
 uv run pytest -q
 ```
+
+---
+
+## Migration from 0.2.x
+
+In v0.3.0 all seven MCP tool wire names were renamed. The `cpp_` prefix was dropped and
+`cpp_export_to_graphdb` was renamed to `ingest_code`. There are **no compatibility aliases**;
+0.2.x clients will receive an MCP `tool not found` error until they are updated.
+
+| 0.2.x name (old) | 0.3.0 name (new) |
+|---|---|
+| `cpp_get_definition` | `get_definition` |
+| `cpp_get_references` | `get_references` |
+| `cpp_get_type_info` | `get_type_info` |
+| `cpp_get_ast` | `get_ast` |
+| `cpp_get_header_info` | `get_header_info` |
+| `cpp_get_preprocessor_state` | `get_preprocessor_state` |
+| `cpp_export_to_graphdb` | `ingest_code` |
 
 ---
 

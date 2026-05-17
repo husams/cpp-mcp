@@ -1,4 +1,4 @@
-"""BDD tests for cpp_export_to_graphdb — IndraDB backend (Story S5 / US-G5).
+"""BDD tests for ingest_code — IndraDB backend (Story S5 / US-G5; v5 rename from export_to_graphdb).
 
 All scenarios that use the fake driver run unconditionally.
 Live-daemon scenarios are tagged @indradb and skipped when INDRADB_TEST_URI
@@ -76,11 +76,11 @@ def _wrap_exc(exc: Exception, request_id: str = "bdd-indradb") -> dict[str, Any]
     ]
     for exc_type, code in code_map:
         if isinstance(exc, exc_type):
-            return build_error(code, str(exc), "cpp_export_to_graphdb", request_id)
+            return build_error(code, str(exc), "ingest_code", request_id)
     return build_error(
         ErrorCode.INTERNAL_ERROR,
         "An internal error occurred.",
-        "cpp_export_to_graphdb",
+        "ingest_code",
         request_id,
     )
 
@@ -97,13 +97,13 @@ def _invoke_fake(
     *,
     fail_on_connect: bool = False,
 ) -> dict[str, Any]:
-    """Call cpp_export_to_graphdb with fake_indradb patched in sys.modules.
+    """Call ingest_code with fake_indradb patched in sys.modules.
 
     The fake Client used within this invocation is accessible via
     ctx["last_fake_client"] after the call.
     """
     from cpp_mcp.core.clang_session import ClangSession
-    from cpp_mcp.tools.export_to_graphdb import cpp_export_to_graphdb
+    from cpp_mcp.tools.ingest_code import ingest_code
 
     # Build a fresh fake module per call so each scenario gets isolated state.
     fake_mod = types.ModuleType("indradb")
@@ -150,7 +150,7 @@ def _invoke_fake(
         "request_id": "bdd-indradb",
     }
     try:
-        result = cpp_export_to_graphdb(**kwargs)
+        result = ingest_code(**kwargs)
     except Exception as exc:
         result = _wrap_exc(exc)
     finally:
@@ -163,9 +163,9 @@ def _invoke_fake(
 
 
 def _invoke_live(ctx: dict[str, Any]) -> dict[str, Any]:
-    """Call cpp_export_to_graphdb against a real IndraDB daemon."""
+    """Call ingest_code against a real IndraDB daemon."""
     from cpp_mcp.core.clang_session import ClangSession
-    from cpp_mcp.tools.export_to_graphdb import cpp_export_to_graphdb
+    from cpp_mcp.tools.ingest_code import ingest_code
 
     session = ClangSession(capacity=4)
     kwargs: dict[str, Any] = {
@@ -178,7 +178,7 @@ def _invoke_live(ctx: dict[str, Any]) -> dict[str, Any]:
         "request_id": "bdd-indradb-live",
     }
     try:
-        result = cpp_export_to_graphdb(**kwargs)
+        result = ingest_code(**kwargs)
     except Exception as exc:
         result = _wrap_exc(exc)
     finally:
@@ -189,7 +189,7 @@ def _invoke_live(ctx: dict[str, Any]) -> dict[str, Any]:
 
 
 def _invoke_idempotency(ctx: dict[str, Any]) -> None:
-    """Run cpp_export_to_graphdb twice with the same shared IndraDBDriver.
+    """Run ingest_code twice with the same shared IndraDBDriver.
 
     Uses a persistent fake_indradb.Client instance so both runs accumulate
     writes to the same store — real UPSERT semantics (create_vertex/create_edge
@@ -198,7 +198,7 @@ def _invoke_idempotency(ctx: dict[str, Any]) -> None:
     Stores counts after each run into ctx["node_count_run{1,2}"] etc.
     """
     from cpp_mcp.core.clang_session import ClangSession
-    from cpp_mcp.tools.export_to_graphdb import cpp_export_to_graphdb
+    from cpp_mcp.tools.ingest_code import ingest_code
 
     # Create a single shared IndraDBDriver backed by a single fake Client.
     shared_client = _fake_indradb_module.Client(host="localhost:27615")
@@ -224,8 +224,8 @@ def _invoke_idempotency(ctx: dict[str, Any]) -> None:
             "request_id": "bdd-indradb-idempotency",
         }
         try:
-            with patch("cpp_mcp.tools.export_to_graphdb.select_driver", return_value=shared_driver):
-                result = cpp_export_to_graphdb(**kwargs)
+            with patch("cpp_mcp.tools.ingest_code.select_driver", return_value=shared_driver):
+                result = ingest_code(**kwargs)
         except Exception as exc:
             result = _wrap_exc(exc)
         finally:
@@ -325,7 +325,7 @@ def given_indradb_test_uri(ctx: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 
 
-@when("cpp_export_to_graphdb is called with that file and an indradb:// URI")
+@when("ingest_code is called with that file and an indradb:// URI")
 def when_export_indradb(ctx: dict[str, Any]) -> None:
     if ctx.get("idempotency_mode"):
         _invoke_idempotency(ctx)
@@ -334,7 +334,7 @@ def when_export_indradb(ctx: dict[str, Any]) -> None:
         _invoke_fake(ctx, fail_on_connect=fail)
 
 
-@when("cpp_export_to_graphdb is called again with the same file and URI")
+@when("ingest_code is called again with the same file and URI")
 def when_export_indradb_again(ctx: dict[str, Any]) -> None:
     # Idempotency scenario already ran both calls in _invoke_idempotency.
     # This step is a no-op — counts are already stored in ctx by _invoke_idempotency.
@@ -353,23 +353,21 @@ def when_select_driver(ctx: dict[str, Any], uri: str) -> None:
         _restore_indradb(old)
 
 
-@when(
-    'cpp_export_to_graphdb is called with file_path_or_dir "../../etc/passwd" and an indradb:// URI'
-)
+@when('ingest_code is called with file_path_or_dir "../../etc/passwd" and an indradb:// URI')
 def when_export_traversal_indradb(ctx: dict[str, Any]) -> None:
     ctx["file_path_or_dir"] = "../../etc/passwd"
     ctx["db_uri"] = "indradb://localhost:27615"
     _invoke_fake(ctx)
 
 
-@when("cpp_export_to_graphdb is called with a non-existent file and an indradb:// URI")
+@when("ingest_code is called with a non-existent file and an indradb:// URI")
 def when_export_nonexistent_indradb(ctx: dict[str, Any]) -> None:
     ctx["file_path_or_dir"] = str(ctx["root"] / "nonexistent_indradb_xyz.cpp")
     ctx["db_uri"] = "indradb://localhost:27615"
     _invoke_fake(ctx)
 
 
-@when("cpp_export_to_graphdb is called with that file and the INDRADB_TEST_URI")
+@when("ingest_code is called with that file and the INDRADB_TEST_URI")
 def when_export_live(ctx: dict[str, Any]) -> None:
     _invoke_live(ctx)
 

@@ -23,6 +23,9 @@ Forces:
 - The project already uses `pytest-asyncio` with `asyncio_mode = "auto"` (pyproject.toml:56).
 - AC-1-5 forbids integration tests from running on bare `uv run pytest` — markers must gate them.
 
+> **v5 note:** the `cpp_export_to_graphdb` tool referenced in tests bound to this ADR was renamed
+> to `ingest_code` in v5. The in-process harness decision is unaffected by the rename.
+
 ## Decision
 
 1. **Transport:** `fastmcp.Client(build_server())` — in-process, same event loop.

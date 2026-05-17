@@ -1,11 +1,11 @@
-"""Frozen v1 tool input schemas — authoritative parity baseline for test_schema_parity.py.
+"""Frozen v5 tool input schemas — authoritative parity baseline for test_schema_parity.py.
 
 These dicts are the v1 schema contract (originally in server/schemas.py), expressed in
 the canonical form used by the _normalize() helper in test_schema_parity.py:
 
   - Optional types are represented as anyOf: [{type:X},{type:null}] (FastMCP's form).
-  - enum values are preserved where v1 had them (cpp_get_ast.format).
-  - minimum constraints are preserved where v1 had them (cpp_get_ast.depth).
+  - enum values are preserved where v1 had them (get_ast.format).
+  - minimum constraints are preserved where v1 had them (get_ast.depth).
   - title is absent (normalizer strips it).
   - description is present and non-empty for every argument.
   - additionalProperties is False for every tool.
@@ -44,7 +44,7 @@ def _opt_int(desc: str) -> dict[str, Any]:
 
 
 EXPECTED: dict[str, dict[str, Any]] = {
-    "cpp_get_definition": {
+    "get_definition": {
         "type": "object",
         "properties": {
             "file_path": _str("Absolute path to the C++ source file."),
@@ -57,7 +57,7 @@ EXPECTED: dict[str, dict[str, Any]] = {
         "required": ["file_path", "line", "col"],
         "additionalProperties": False,
     },
-    "cpp_get_references": {
+    "get_references": {
         "type": "object",
         "properties": {
             "file_path": _str("Absolute path to the C++ source file."),
@@ -70,7 +70,7 @@ EXPECTED: dict[str, dict[str, Any]] = {
         "required": ["file_path", "line", "col"],
         "additionalProperties": False,
     },
-    "cpp_get_type_info": {
+    "get_type_info": {
         "type": "object",
         "properties": {
             "file_path": _str("Absolute path to the C++ source file."),
@@ -83,7 +83,7 @@ EXPECTED: dict[str, dict[str, Any]] = {
         "required": ["file_path", "line", "col"],
         "additionalProperties": False,
     },
-    "cpp_get_ast": {
+    "get_ast": {
         "type": "object",
         "properties": {
             "file_path": _str("Absolute path to the C++ source file."),
@@ -110,7 +110,7 @@ EXPECTED: dict[str, dict[str, Any]] = {
         "required": ["file_path"],
         "additionalProperties": False,
     },
-    "cpp_get_header_info": {
+    "get_header_info": {
         "type": "object",
         "properties": {
             "file_path": _str("Absolute path to the C++ header or source file."),
@@ -121,7 +121,7 @@ EXPECTED: dict[str, dict[str, Any]] = {
         "required": ["file_path"],
         "additionalProperties": False,
     },
-    "cpp_get_preprocessor_state": {
+    "get_preprocessor_state": {
         "type": "object",
         "properties": {
             "file_path": _str("Absolute path to the C++ source file."),
@@ -132,7 +132,7 @@ EXPECTED: dict[str, dict[str, Any]] = {
         "required": ["file_path"],
         "additionalProperties": False,
     },
-    "cpp_export_to_graphdb": {
+    "ingest_code": {
         "type": "object",
         "properties": {
             "file_path_or_dir": _str("Absolute path to a C++ source file or directory to export."),

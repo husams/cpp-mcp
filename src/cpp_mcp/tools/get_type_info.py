@@ -1,4 +1,4 @@
-"""cpp_get_type_info — retrieve type details for a C++ symbol at a source position.
+"""get_type_info — retrieve type details for a C++ symbol at a source position.
 
 S3: converted to sync def + @mcp.tool + Depends DI (ADR-3, ADR-7).
 
@@ -126,16 +126,16 @@ def get_type_info(
 
 
 def _register(mcp: Any) -> None:
-    """Register cpp_get_type_info against *mcp*. Called by build_server()."""
+    """Register get_type_info against *mcp*. Called by build_server()."""
 
     @mcp.tool(  # type: ignore[untyped-decorator]
-        name="cpp_get_type_info",
+        name="get_type_info",
         description=(
             "Retrieve type details (size, alignment, qualifiers, canonical form) for a C++ symbol."
         ),
     )
-    @wrap_tool("cpp_get_type_info")
-    def cpp_get_type_info(
+    @wrap_tool("get_type_info")
+    def get_type_info_tool(
         file_path: Annotated[str, "Absolute path to the C++ source file."],
         line: Annotated[int, "1-based line number of the symbol."],
         col: Annotated[int, "1-based column number of the symbol."],

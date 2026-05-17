@@ -6,14 +6,14 @@ Feature: Default Flags Fallback (US-9)
   @SC_US_9_1
   Scenario: build_path None applies default_flags
     Given the file "tiny.cpp" is copied to the default flags root
-    When cpp_get_definition is called via app with build_path None for that file
+    When get_definition is called via app with build_path None for that file
     Then the response has flags_source "default"
 
   @SC_US_9_2
   Scenario: File absent from compile_commands.json falls back to default
     Given the file "tiny.cpp" is copied to the default flags root
     And an empty build directory exists in the allowed root
-    When cpp_get_definition is called via app with that build_path for that file
+    When get_definition is called via app with that build_path for that file
     Then the response has flags_source "default"
 
   @SC_US_9_4

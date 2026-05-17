@@ -172,8 +172,8 @@ def wrap_tool(tool_name: str) -> Callable[[Callable[P, R]], Callable[P, Any]]:
 
     Usage::
 
-        @wrap_tool("cpp_get_definition")
-        async def cpp_get_definition(**kwargs: Any) -> dict[str, Any]:
+        @wrap_tool("get_definition")
+        async def get_definition(**kwargs: Any) -> dict[str, Any]:
             ...
     """
 

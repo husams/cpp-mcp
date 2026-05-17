@@ -5,10 +5,10 @@ Feature: Structured Error Envelope (US-13)
 
   @SC_US_13_1
   Scenario: PATH_VIOLATION error conforms to envelope schema
-    When cpp_get_definition is called via the app with path "../../etc/passwd" line 1 col 1
+    When get_definition is called via the app with path "../../etc/passwd" line 1 col 1
     Then the response has code "PATH_VIOLATION"
     And the response has a non-empty message
-    And the response has tool "cpp_get_definition"
+    And the response has tool "get_definition"
     And the response has a request_id
 
   @SC_US_13_2
@@ -19,6 +19,6 @@ Feature: Structured Error Envelope (US-13)
 
   @SC_US_13_3
   Scenario: All errors are structured JSON with a code field
-    When cpp_get_definition is called via the app with path "../../etc/passwd" line 1 col 1
+    When get_definition is called via the app with path "../../etc/passwd" line 1 col 1
     Then the response is a dict with a "code" field
     And the code is one of the valid error codes
