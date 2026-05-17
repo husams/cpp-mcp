@@ -224,9 +224,7 @@ class Neo4jQueryExecutor:
             self._driver.verify_connectivity()
             logger.debug("Neo4j (query) connected: %s", uri)
         except Exception as exc:
-            raise DBUnreachableError(
-                f"Cannot reach Neo4j at {uri!r}: {exc}"
-            ) from exc
+            raise DBUnreachableError(f"Cannot reach Neo4j at {uri!r}: {exc}") from exc
 
     def execute(
         self,
@@ -278,9 +276,7 @@ class Neo4jQueryExecutor:
                 raise QueryParseError(f"Cypher syntax error: {exc}") from exc
             except neo4j_exc.ClientError as exc:
                 if "TimedOut" in str(exc):
-                    raise QueryTimeoutError(
-                        f"Query timed out after {timeout_s}s: {exc}"
-                    ) from exc
+                    raise QueryTimeoutError(f"Query timed out after {timeout_s}s: {exc}") from exc
                 raise DBUnreachableError(f"Neo4j client error: {exc}") from exc
             except neo4j_exc.ServiceUnavailable as exc:
                 raise DBUnreachableError(f"Neo4j service unavailable: {exc}") from exc

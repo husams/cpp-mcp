@@ -4,16 +4,18 @@ Covers:
   - Non-static class data member → Field (S1-1 AC1, SC1, ADR-25 D1).
   - Static class data member → GlobalVariable (S1-1 AC3, SC3, ADR-25 D7).
   - Anonymous struct/union member → Field (ADR-25 D3, minimal coverage).
-  - PARM_DECL → Variable (ADR-25 D2; ensures D2 invariant holds alongside D1).
+  - PARM_DECL → Parameter (ADR-26 D9; replaces ADR-25 D2 transitional Variable).
 
 Libclang capability probe (F-3 per ADR-25):
   ``Cursor.is_static_member`` is NOT available on the pinned libclang version
   (clang-python binding, verified during P2 implementation). All static-member
   detection uses the ``StorageClass.STATIC`` fallback path in ``_is_static_member``.
 
-Note on USR-scoped assertions (ADR-25 D2):
-  Tests assert on specific USRs only. Never assert "no Variable nodes globally"
-  because PARM_DECL still emits Variable in S1.
+Note on USR-scoped assertions (ADR-26 D9):
+  P3 wires Parameter emission via ``cursor.get_arguments()`` in the parent function
+  block with the synthetic USR ``<fn-usr>#param:<i>``.  Tests must assert on the
+  synthetic USR, not on the libclang-native PARM_DECL USR (which is now skipped by
+  the PARM_DECL guard in generic recursion).
 """
 
 from __future__ import annotations
@@ -25,7 +27,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from cpp_mcp.graphdb.exporter import extract_nodes_and_edges
-from cpp_mcp.graphdb.schema import NODE_FIELD, NODE_GLOBAL_VARIABLE, NODE_VARIABLE
+from cpp_mcp.graphdb.schema import NODE_FIELD, NODE_GLOBAL_VARIABLE, NODE_PARAMETER, NODE_VARIABLE
 
 # ---------------------------------------------------------------------------
 # Fake cursor / TU helpers
@@ -66,7 +68,11 @@ def _make_field_cursor(
 
 
 def _make_parm_cursor(*, usr: str, spelling: str, file_name: str) -> Any:
-    """Build a fake PARM_DECL cursor (Variable per ADR-25 D2)."""
+    """Build a fake PARM_DECL cursor (Parameter per ADR-26 D9).
+
+    get_arguments() returns [] so nested params don't recurse.
+    get_tokens() returns [] so _render_default_value yields "".
+    """
     cursor = MagicMock()
     cursor.kind.name = "PARM_DECL"
     cursor.get_usr.return_value = usr
@@ -78,6 +84,7 @@ def _make_parm_cursor(*, usr: str, spelling: str, file_name: str) -> Any:
     cursor.location.line = 2
     cursor.location.column = 14
     cursor.get_children.return_value = []
+    cursor.get_tokens.return_value = []
     cursor.referenced = None
     return cursor
 
@@ -107,7 +114,13 @@ def _make_class_cursor(
 
 
 def _make_function_cursor(*, usr: str, spelling: str, file_name: str, params: list[Any]) -> Any:
-    """Build a fake FUNCTION_DECL cursor containing *params* as children."""
+    """Build a fake FUNCTION_DECL cursor containing *params* as get_arguments().
+
+    P3 (ADR-26 D9): Parameter nodes are emitted via ``cursor.get_arguments()``
+    in the explicit function-block loop, not via generic child recursion.
+    ``get_children`` returns an empty list so PARM_DECL cursors are not visited
+    by the generic recursion path (the PARM_DECL guard returns early anyway).
+    """
     cursor = MagicMock()
     cursor.kind.name = "FUNCTION_DECL"
     cursor.get_usr.return_value = usr
@@ -118,7 +131,8 @@ def _make_function_cursor(*, usr: str, spelling: str, file_name: str, params: li
     cursor.location.file.name = file_name
     cursor.location.line = 1
     cursor.location.column = 1
-    cursor.get_children.return_value = params
+    cursor.get_children.return_value = []
+    cursor.get_arguments.return_value = params
     cursor.referenced = None
     return cursor
 
@@ -324,25 +338,25 @@ class TestAnonymousStructMember:
 
 
 # ---------------------------------------------------------------------------
-# Tests — PARM_DECL → Variable (ADR-25 D2 invariant)
+# Tests — PARM_DECL → Parameter (ADR-26 D9; replaces ADR-25 D2 transitional)
 # ---------------------------------------------------------------------------
 
 
 class TestParmDeclInvariant:
-    def test_parm_decl_produces_variable(self, tmp_path: Path) -> None:
-        """PARM_DECL still emits Variable in S1 (transitional until S2). (ADR-25 D2)
+    def test_parm_decl_produces_parameter(self, tmp_path: Path) -> None:
+        """PARM_DECL emits Parameter (not Variable) in S2 (ADR-26 D9).
 
-        This positive assertion proves D2 holds: a PARM_DECL cursor must not be
-        swallowed, misclassified as GlobalVariable, or emitted as Field.
+        Parameter nodes are emitted with the synthetic USR ``<fn-usr>#param:<i>``
+        via the get_arguments() loop, not via the libclang native PARM_DECL USR.
         """
         source = tmp_path / "func.cpp"
         source.write_text("")
         fname = str(source)
 
-        param_usr = "c:func.cpp@10@F@doWork#I#@x"
-        param = _make_parm_cursor(usr=param_usr, spelling="x", file_name=fname)
+        fn_usr = "c:@F@doWork#I#"
+        param = _make_parm_cursor(usr="c:func.cpp@10@F@doWork#I#@x", spelling="x", file_name=fname)
         func = _make_function_cursor(
-            usr="c:@F@doWork#I#",
+            usr=fn_usr,
             spelling="doWork",
             file_name=fname,
             params=[param],
@@ -351,24 +365,32 @@ class TestParmDeclInvariant:
 
         nodes, _ = extract_nodes_and_edges(tu, source)
 
-        param_nodes = [n for n in nodes if n["usr"] == param_usr]
-        assert param_nodes, f"Expected a node for PARM_DECL USR {param_usr!r} (D2)"
-        assert param_nodes[0]["label"] == NODE_VARIABLE, (
-            f"PARM_DECL must emit Variable in S1, got {param_nodes[0]['label']!r} (D2)"
+        # Synthetic USR for first parameter: <fn-usr>#param:0
+        synthetic_usr = f"{fn_usr}#param:0"
+        param_nodes = [n for n in nodes if n["usr"] == synthetic_usr]
+        assert param_nodes, (
+            f"Expected a Parameter node with synthetic USR {synthetic_usr!r} (ADR-26 D9)"
+        )
+        assert param_nodes[0]["label"] == NODE_PARAMETER, (
+            f"PARM_DECL must emit Parameter in S2, got {param_nodes[0]['label']!r} (ADR-26 D9)"
         )
 
     @pytest.mark.parametrize(
         "bad_label",
-        [NODE_FIELD, NODE_GLOBAL_VARIABLE],
+        [NODE_FIELD, NODE_GLOBAL_VARIABLE, NODE_VARIABLE],
     )
-    def test_parm_decl_not_field_or_global_variable(self, tmp_path: Path, bad_label: str) -> None:
-        """PARM_DECL USR must not appear as Field or GlobalVariable. (ADR-25 D2, USR-scoped)"""
+    def test_parm_decl_not_field_global_variable_or_variable(
+        self, tmp_path: Path, bad_label: str
+    ) -> None:
+        """PARM_DECL must not emit Field, GlobalVariable, or Variable. (ADR-26 D9)
+
+        Variable is now explicitly prohibited: PARM_DECL must emit Parameter.
+        """
         source = tmp_path / "func.cpp"
         source.write_text("")
         fname = str(source)
 
-        param_usr = "c:func.cpp@10@F@helper#I#@n"
-        param = _make_parm_cursor(usr=param_usr, spelling="n", file_name=fname)
+        param = _make_parm_cursor(usr="c:func.cpp@10@F@helper#I#@n", spelling="n", file_name=fname)
         func = _make_function_cursor(
             usr="c:@F@helper#I#",
             spelling="helper",
@@ -379,7 +401,105 @@ class TestParmDeclInvariant:
 
         nodes, _ = extract_nodes_and_edges(tu, source)
 
-        bad_nodes = [n for n in nodes if n["usr"] == param_usr and n["label"] == bad_label]
+        bad_nodes = [n for n in nodes if n["label"] == bad_label]
         assert not bad_nodes, (
-            f"PARM_DECL USR {param_usr!r} must not produce {bad_label!r} node (D2)"
+            f"PARM_DECL must not produce {bad_label!r} nodes (ADR-26 D9); found: {bad_nodes}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# P4 (SC-D-03) — Field → OF_TYPE → Type
+# ---------------------------------------------------------------------------
+
+
+class TestFieldOfTypeEdge:
+    """SC-D-03: Field node has exactly one outgoing OF_TYPE edge to its Type node.
+
+    ADR-26 §3.4: OF_TYPE is emitted inside the seen_usrs guard in _walk_cursor,
+    once per Field node creation.
+    """
+
+    def test_field_has_of_type_edge(self, tmp_path: Path) -> None:
+        """double x in class Point → 1 OF_TYPE edge from the Field to Type{spelling="double"}."""
+        from clang.cindex import StorageClass  # type: ignore[import-untyped]
+
+        from cpp_mcp.graphdb.schema import EDGE_OF_TYPE, NODE_TYPE
+
+        source = tmp_path / "point.cpp"
+        source.write_text("")
+        fname = str(source)
+
+        field_x = _make_field_cursor(
+            usr="c:@S@Point@FI@x",
+            spelling="x",
+            file_name=fname,
+            storage_class=StorageClass.NONE,
+        )
+        field_x.type.spelling = "double"
+
+        field_y = _make_field_cursor(
+            usr="c:@S@Point@FI@y",
+            spelling="y",
+            file_name=fname,
+            storage_class=StorageClass.NONE,
+        )
+        field_y.type.spelling = "double"
+
+        cls = _make_class_cursor(
+            usr="c:@S@Point",
+            spelling="Point",
+            file_name=fname,
+            children=[field_x, field_y],
+        )
+        tu = _make_tu(source, [cls])
+
+        nodes, edges = extract_nodes_and_edges(tu, source)
+
+        field_usrs = {"c:@S@Point@FI@x", "c:@S@Point@FI@y"}
+        for field_usr in field_usrs:
+            of_edges = [
+                e for e in edges if e["edge_type"] == EDGE_OF_TYPE and e["source_usr"] == field_usr
+            ]
+            assert len(of_edges) == 1, (
+                f"Field {field_usr!r} must have exactly 1 OF_TYPE edge, got {len(of_edges)}"
+            )
+            type_node = next((n for n in nodes if n["usr"] == of_edges[0]["target_usr"]), None)
+            assert type_node is not None, f"No Type node at OF_TYPE target for {field_usr!r}"
+            assert type_node["label"] == NODE_TYPE, (
+                f"OF_TYPE target must be Type, got {type_node['label']!r}"
+            )
+            assert type_node["props"]["spelling"] == "double", (
+                f"Expected 'double', got {type_node['props']['spelling']!r}"
+            )
+
+    def test_field_of_type_no_duplicate_edges(self, tmp_path: Path) -> None:
+        """OF_TYPE is emitted exactly once per Field (dedup via seen_usrs guard)."""
+        from clang.cindex import StorageClass  # type: ignore[import-untyped]
+
+        from cpp_mcp.graphdb.schema import EDGE_OF_TYPE
+
+        source = tmp_path / "dedup_field.cpp"
+        source.write_text("")
+        fname = str(source)
+
+        field = _make_field_cursor(
+            usr="c:@S@Box@FI@width",
+            spelling="width",
+            file_name=fname,
+            storage_class=StorageClass.NONE,
+        )
+        field.type.spelling = "float"
+
+        cls = _make_class_cursor(usr="c:@S@Box", spelling="Box", file_name=fname, children=[field])
+        tu = _make_tu(source, [cls])
+
+        _nodes, edges = extract_nodes_and_edges(tu, source)
+
+        of_edges = [
+            e
+            for e in edges
+            if e["edge_type"] == EDGE_OF_TYPE and e["source_usr"] == "c:@S@Box@FI@width"
+        ]
+        assert len(of_edges) == 1, (
+            f"Field must have exactly 1 OF_TYPE edge (no duplicates), got {len(of_edges)}"
         )

@@ -126,9 +126,7 @@ class TestInvalidArgument:
         result = _call_tool(query="")
         assert result["code"] == "INVALID_ARGUMENT"
 
-    def test_unknown_scheme_returns_invalid_argument(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_unknown_scheme_returns_invalid_argument(self, monkeypatch: pytest.MonkeyPatch) -> None:
         result = _call_tool(db_uri="redis://localhost:6379")
         assert result["code"] == "INVALID_ARGUMENT"
 
@@ -205,9 +203,7 @@ class TestQueryUnsupported:
 
 
 class TestQueryTimeout:
-    def test_futures_timeout_maps_to_query_timeout(
-        self, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
+    def test_futures_timeout_maps_to_query_timeout(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """concurrent.futures.TimeoutError from .result() → QUERY_TIMEOUT."""
         session = MagicMock()
         fut = MagicMock()
@@ -223,9 +219,7 @@ class TestQueryTimeout:
 
 
 class TestRowLimitClamp:
-    def _get_submitted_row_limit(
-        self, monkeypatch: pytest.MonkeyPatch, row_limit: int
-    ) -> int:
+    def _get_submitted_row_limit(self, monkeypatch: pytest.MonkeyPatch, row_limit: int) -> int:
         """Capture the row_limit passed through to _do_query_graphdb."""
         captured: dict[str, Any] = {}
 

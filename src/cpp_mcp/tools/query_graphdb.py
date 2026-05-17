@@ -80,9 +80,7 @@ def _do_query_graphdb(
     except (DependencyMissingError, DBUnreachableError):
         raise
     except Exception as exc:
-        raise DBUnreachableError(
-            f"Cannot reach graph database at {db_uri!r}: {exc}"
-        ) from exc
+        raise DBUnreachableError(f"Cannot reach graph database at {db_uri!r}: {exc}") from exc
 
     try:
         result = executor.execute(
@@ -166,6 +164,4 @@ def _register(mcp: Any) -> None:
                 request_id=request_id,
             ).result(timeout=timeout_s)
         except concurrent.futures.TimeoutError as exc:
-            raise QueryTimeoutError(
-                f"query_graphdb timed out after {timeout_s}s"
-            ) from exc
+            raise QueryTimeoutError(f"query_graphdb timed out after {timeout_s}s") from exc

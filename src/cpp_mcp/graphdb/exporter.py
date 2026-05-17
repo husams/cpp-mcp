@@ -31,7 +31,7 @@ Cursor kinds are mapped to schema node types:
     DESTRUCTOR         → Function
   VAR_DECL             → GlobalVariable
   FIELD_DECL           → Field (non-static) or GlobalVariable (static, ADR-25 D7)
-  PARM_DECL            → Variable (transitional until S2; ADR-25 D2)
+  PARM_DECL            → Parameter (ADR-26 D9; handled via get_arguments() loop)
   MACRO_DEFINITION     → Macro
   TYPEDEF_DECL /
     TYPE_ALIAS_DECL    → TypeAlias
@@ -56,6 +56,8 @@ Edges are inferred during the same traversal:
 
 from __future__ import annotations
 
+import contextlib
+import hashlib
 import logging
 from pathlib import Path
 from typing import Any
@@ -65,10 +67,15 @@ from cpp_mcp.graphdb.schema import (
     EDGE_CALLS,
     EDGE_DECLARES,
     EDGE_DEFINES,
+    EDGE_HAS_PARAM,
     EDGE_INCLUDES,
     EDGE_INHERITS,
     EDGE_MEMBER_OF,
+    EDGE_OF_TYPE,
+    EDGE_POINTS_TO,
     EDGE_REFERENCES,
+    EDGE_REFERS_TO,
+    EDGE_RETURNS,
     NODE_CLASS,
     NODE_FIELD,
     NODE_FILE,
@@ -76,8 +83,9 @@ from cpp_mcp.graphdb.schema import (
     NODE_GLOBAL_VARIABLE,
     NODE_MACRO,
     NODE_NAMESPACE,
+    NODE_PARAMETER,
+    NODE_TYPE,
     NODE_TYPE_ALIAS,
-    NODE_VARIABLE,
 )
 from cpp_mcp.graphdb.schema_version import SCHEMA_VERSION
 
@@ -104,16 +112,20 @@ _KIND_TO_NODE_TYPE: dict[str, str] = {
     "DESTRUCTOR": NODE_FUNCTION,
     "FUNCTION_TEMPLATE": NODE_FUNCTION,
     "VAR_DECL": NODE_GLOBAL_VARIABLE,  # D1: VAR_DECL → GlobalVariable (ADR-25)
+    "UNION_DECL": NODE_CLASS,  # ADR-26 D8: UNION_DECL → Class (record_kind="union")
     # "FIELD_DECL" is classified at runtime via _classify_field (D7 static invariant)
-    "PARM_DECL": NODE_VARIABLE,  # D2: transitional; → Parameter in S2 (ADR-25)
+    "PARM_DECL": NODE_PARAMETER,  # ADR-26 D9: PARM_DECL → Parameter (S1 transitional complete)
     "MACRO_DEFINITION": NODE_MACRO,
     "TYPEDEF_DECL": NODE_TYPE_ALIAS,
     "TYPE_ALIAS_DECL": NODE_TYPE_ALIAS,
     "TYPE_ALIAS_TEMPLATE_DECL": NODE_TYPE_ALIAS,
 }
 
-# CursorKind names whose children are MEMBER_OF the parent class/struct.
-_MEMBER_PARENT_KINDS: frozenset[str] = frozenset({"CLASS_DECL", "STRUCT_DECL", "CLASS_TEMPLATE"})
+# CursorKind names whose children are MEMBER_OF the parent class/struct/union.
+# UNION_DECL added with ADR-26 D8 (union now maps to NODE_CLASS).
+_MEMBER_PARENT_KINDS: frozenset[str] = frozenset(
+    {"CLASS_DECL", "STRUCT_DECL", "CLASS_TEMPLATE", "UNION_DECL"}
+)
 
 # CursorKind names that represent a symbol use-site (non-call references).
 # These do not produce nodes — only REFERENCES edges.
@@ -345,6 +357,388 @@ def _storage_class_value(cursor: Any, node_type: str) -> str:
 
 
 # ---------------------------------------------------------------------------
+# Type node helpers (ADR-26 D1-D4)
+# ---------------------------------------------------------------------------
+
+
+def _type_usr(spelling: str) -> str:
+    """Return the synthetic USR for a Type node (ADR-26 D1).
+
+    Format: ``type:<sha1_hex_digest_of_spelling_utf8>``
+
+    Using sha1 over the source-form spelling (per ADR-26 D2) gives a
+    deterministic, collision-resistant USR that works for builtins (int,
+    void), pointer/reference variants, and template instantiations alike.
+    The ``type:`` prefix disambiguates from libclang cursor USRs (``c:``),
+    file USRs (``file://``), and the synthetic Parameter USR (``#param``).
+    """
+    return f"type:{hashlib.sha1(spelling.encode('utf-8')).hexdigest()}"
+
+
+def _type_props(t: Any) -> dict[str, Any]:
+    """Return the eight Type node properties for libclang type *t*.
+
+    All probes are individually guarded; a missing capability defaults to
+    ``False`` / ``""`` (mirrors S1 ``_var_qualifiers`` pattern, per ADR-26
+    D10).  The source-form spelling is used per ADR-26 D2 — do NOT call
+    ``t.get_canonical().spelling``.
+    """
+    props: dict[str, Any] = {
+        "spelling": "",
+        "is_const": False,
+        "is_volatile": False,
+        "is_pointer": False,
+        "is_reference": False,
+        "is_lvalue_reference": False,
+        "is_rvalue_reference": False,
+        "kind": "",
+    }
+
+    with contextlib.suppress(Exception):
+        props["spelling"] = t.spelling or ""
+
+    with contextlib.suppress(Exception):
+        props["is_const"] = bool(t.is_const_qualified())
+
+    with contextlib.suppress(Exception):
+        props["is_volatile"] = bool(t.is_volatile_qualified())
+
+    try:
+        from clang.cindex import TypeKind  # type: ignore[import-untyped]
+
+        kind = t.kind
+        props["is_pointer"] = kind == TypeKind.POINTER
+        props["is_lvalue_reference"] = kind == TypeKind.LVALUEREFERENCE
+        props["is_rvalue_reference"] = kind == TypeKind.RVALUEREFERENCE
+        props["is_reference"] = props["is_lvalue_reference"] or props["is_rvalue_reference"]
+        props["kind"] = kind.name if hasattr(kind, "name") else str(kind)
+    except Exception:
+        pass
+
+    return props
+
+
+def _get_or_create_type(
+    t: Any,
+    nodes: list[NodeRecord],
+    edges: list[EdgeRecord],
+    seen_usrs: set[str],
+) -> str | None:
+    """Ensure a Type node exists for libclang type *t*; return its USR.
+
+    Idempotent: re-calling with the same spelling is a no-op (seen_usrs
+    guard — ADR-26 D3).  Recursively creates pointee/referent Types and
+    emits POINTS_TO / REFERS_TO edges per ADR-26 D4.
+
+    Returns ``None`` when *t* is None or has no usable spelling.
+    """
+    if t is None:
+        return None
+    try:
+        spelling = t.spelling or ""
+    except Exception:
+        return None
+    if not spelling:
+        return None
+
+    usr = _type_usr(spelling)
+    if usr in seen_usrs:
+        return usr
+    seen_usrs.add(usr)
+    nodes.append(NodeRecord(label=NODE_TYPE, usr=usr, props=_type_props(t)))
+
+    # ADR-26 D4: recursively create pointee / referent and emit chain edges.
+    try:
+        from clang.cindex import TypeKind  # type: ignore[import-untyped]
+
+        kind = t.kind
+        if kind == TypeKind.POINTER:
+            pointee_usr = _get_or_create_type(t.get_pointee(), nodes, edges, seen_usrs)
+            if pointee_usr:
+                edges.append(
+                    EdgeRecord(
+                        source_usr=usr,
+                        target_usr=pointee_usr,
+                        edge_type=EDGE_POINTS_TO,
+                        props={},
+                    )
+                )
+        elif kind in (TypeKind.LVALUEREFERENCE, TypeKind.RVALUEREFERENCE):
+            # libclang reuses get_pointee() for reference types (confirmed in ADR-26).
+            referent_usr = _get_or_create_type(t.get_pointee(), nodes, edges, seen_usrs)
+            if referent_usr:
+                edges.append(
+                    EdgeRecord(
+                        source_usr=usr,
+                        target_usr=referent_usr,
+                        edge_type=EDGE_REFERS_TO,
+                        props={},
+                    )
+                )
+    except Exception:
+        pass
+
+    return usr
+
+
+# ---------------------------------------------------------------------------
+# Parameter helper (ADR-26 D6, design §2.6)
+# ---------------------------------------------------------------------------
+
+
+def _render_default_value(param_cursor: Any) -> str:
+    """Return the source-text spelling of a parameter's default value, or "".
+
+    Strategy (design §2.6): iterate ``param_cursor.get_tokens()``, capture
+    tokens after the first ``=`` token up to end of extent, join with single
+    spaces, strip surrounding whitespace.
+
+    Multi-token defaults (``= std::string("x")``) are preserved as a single
+    string; the property is documented as source-text verbatim.  Returns ``""``
+    when no initializer is present (SC-C-04).
+    """
+    try:
+        tokens = list(param_cursor.get_tokens())
+    except Exception:
+        return ""
+
+    found_eq = False
+    parts: list[str] = []
+    for tok in tokens:
+        try:
+            spelling = tok.spelling
+        except Exception:
+            continue
+        if not found_eq:
+            if spelling == "=":
+                found_eq = True
+        else:
+            parts.append(spelling)
+
+    return " ".join(parts).strip()
+
+
+# ---------------------------------------------------------------------------
+# Function signature property helpers (ADR-26 D7, D10, D11; design §2.4, §2.7)
+# ---------------------------------------------------------------------------
+
+
+def _method_has_volatile_qualifier(cursor: Any) -> bool:
+    """Return True when the method has a ``volatile`` cv-qualifier (design §2.7).
+
+    Strategy: walk the tokens of ``cursor.extent``; track paren depth to find
+    the `)` that closes the parameter list; scan tokens *after* that close-paren
+    until the first `{`, `;`, `=`, or `->` (trailing return type) — return True
+    if ``"volatile"`` appears in that window.
+
+    Mirrors S1's ``_storage_class_value`` token-scan pattern.  Avoids mis-firing
+    on ``volatile`` inside the parameter list (e.g. ``void f(volatile int *)``)
+    because the scan starts only after the closing `)`.
+    """
+    try:
+        tokens = list(cursor.get_tokens())
+    except Exception:
+        return False
+
+    # Find the index of the `)` that closes the parameter list (depth-tracked).
+    paren_depth = 0
+    close_paren_idx = -1
+    for i, tok in enumerate(tokens):
+        try:
+            sp = tok.spelling
+        except Exception:
+            continue
+        if sp == "(":
+            paren_depth += 1
+        elif sp == ")":
+            paren_depth -= 1
+            if paren_depth == 0:
+                close_paren_idx = i
+                break
+
+    if close_paren_idx < 0:
+        return False
+
+    # Scan tokens after the closing `)` for "volatile" until a terminator.
+    _TERMINATORS = frozenset({"{", ";", "="})
+    for tok in tokens[close_paren_idx + 1 :]:
+        try:
+            sp = tok.spelling
+        except Exception:
+            continue
+        if sp in _TERMINATORS:
+            break
+        if sp == "->":
+            break  # trailing return type starts; stop scanning
+        if sp == "volatile":
+            return True
+
+    return False
+
+
+def _emit_function_signature_props(cursor: Any) -> dict[str, Any]:
+    """Return the seven S2 signature properties for a Function cursor (ADR-26 D7/D10/D11).
+
+    Properties returned:
+      - ``signature``: ``cursor.displayname`` (ADR-26 D7)
+      - ``is_constexpr``: token-scan for ``"constexpr"`` (ADR-26 D10 — absent on pinned libclang)
+      - ``is_noexcept``: ``exception_specification_kind in {BASIC_NOEXCEPT, COMPUTED_NOEXCEPT,
+        DYNAMIC_NONE}`` (ADR-26 D11)
+      - ``is_deleted``: ``cursor.is_deleted_method()``
+      - ``is_defaulted``: ``cursor.is_default_method()``
+      - ``cv_qualifiers``: ``""`` | ``"const"`` | ``"volatile"`` | ``"const volatile"``
+      - ``ref_qualifier``: ``""`` | ``"&"`` | ``"&&"``
+
+    DEFERRED (do NOT add here): ``is_template``, ``is_virtual``, ``is_override`` (S3/S4).
+
+    Libclang fallback notes (ADR-26 D10, F-6):
+      - ``cursor.is_constexpr`` is **absent** on the pinned libclang; token-scan is always used.
+      - ``cursor.is_noexcept`` is **absent**; ``exception_specification_kind`` is used instead.
+      - ``ExceptionSpecificationKind.NOEXCEPT_FALSE`` is absent on this libclang version;
+        ``COMPUTED_NOEXCEPT`` covers both ``noexcept(true)`` and ``noexcept(false)`` at the
+        enum level.  ADR-26 D11 treats ``COMPUTED_NOEXCEPT`` → ``True``; ``noexcept(false)``
+        cannot be disambiguated without inspecting the boolean argument expression.
+        Documented in implementation-notes.md §Libclang fallbacks.
+      - There is no ``is_volatile_method``; ``cv_qualifiers="volatile"`` is detected via
+        ``_method_has_volatile_qualifier`` token-scan (ADR-26 D10, F-7).
+    """
+    props: dict[str, Any] = {
+        "signature": "",
+        "is_constexpr": False,
+        "is_noexcept": False,
+        "is_deleted": False,
+        "is_defaulted": False,
+        "cv_qualifiers": "",
+        "ref_qualifier": "",
+    }
+
+    # --- signature: cursor.displayname (ADR-26 D7) ---
+    with contextlib.suppress(Exception):
+        props["signature"] = cursor.displayname or ""
+
+    # --- is_constexpr: token-scan (is_constexpr absent on pinned libclang per ADR-26 D10) ---
+    # First, try the native method (future-proofing); fall back to token-scan.
+    is_constexpr_method = getattr(cursor, "is_constexpr", None)
+    if callable(is_constexpr_method):
+        with contextlib.suppress(Exception):
+            props["is_constexpr"] = bool(is_constexpr_method())
+
+    if not props["is_constexpr"]:
+        try:
+            for tok in cursor.get_tokens():
+                if tok.spelling == "constexpr":
+                    props["is_constexpr"] = True
+                    break
+        except Exception:
+            pass
+
+    # --- is_noexcept: exception_specification_kind (ADR-26 D11) ---
+    try:
+        from clang.cindex import ExceptionSpecificationKind  # type: ignore[import-untyped]
+
+        _NOEXCEPT_KINDS = frozenset(
+            {
+                ExceptionSpecificationKind.BASIC_NOEXCEPT,
+                ExceptionSpecificationKind.COMPUTED_NOEXCEPT,
+                ExceptionSpecificationKind.DYNAMIC_NONE,
+            }
+        )
+        props["is_noexcept"] = cursor.exception_specification_kind in _NOEXCEPT_KINDS
+    except Exception:
+        pass
+
+    # --- is_deleted: cursor.is_deleted_method() ---
+    with contextlib.suppress(Exception):
+        is_del = getattr(cursor, "is_deleted_method", None)
+        if callable(is_del):
+            props["is_deleted"] = bool(is_del())
+
+    # --- is_defaulted: cursor.is_default_method() ---
+    with contextlib.suppress(Exception):
+        is_def = getattr(cursor, "is_default_method", None)
+        if callable(is_def):
+            props["is_defaulted"] = bool(is_def())
+
+    # --- cv_qualifiers: "const" | "volatile" | "const volatile" | "" ---
+    cv: list[str] = []
+    with contextlib.suppress(Exception):
+        is_const_m = getattr(cursor, "is_const_method", None)
+        if callable(is_const_m) and bool(is_const_m()):
+            cv.append("const")
+    if _method_has_volatile_qualifier(cursor):
+        cv.append("volatile")
+    props["cv_qualifiers"] = " ".join(cv)
+
+    # --- ref_qualifier: "" | "&" | "&&" ---
+    try:
+        from clang.cindex import RefQualifierKind  # type: ignore[import-untyped]
+
+        rq = cursor.type.get_ref_qualifier()
+        props["ref_qualifier"] = {
+            RefQualifierKind.NONE: "",
+            RefQualifierKind.LVALUE: "&",
+            RefQualifierKind.RVALUE: "&&",
+        }.get(rq, "")
+    except Exception:
+        pass
+
+    return props
+
+
+# ---------------------------------------------------------------------------
+# Class property helper (ADR-26 D8, D10; design §2.5; S2-G)
+# ---------------------------------------------------------------------------
+
+
+def _emit_class_props(cursor: Any) -> dict[str, Any]:
+    """Return S2 class properties for a CLASS_DECL / STRUCT_DECL / UNION_DECL cursor.
+
+    Properties returned:
+      - ``is_final``:    True when the class has a ``CXX_FINAL_ATTR`` child (ADR-26 D10).
+      - ``is_abstract``: True when ``cursor.is_abstract_record()`` returns True.
+        Defaults to False for forward declarations and on libclang capability miss.
+      - ``record_kind``: ``"class"`` | ``"struct"`` | ``"union"`` | ``""`` (defensive).
+        Derived from ``cursor.kind.name`` (ADR-26 D8).
+
+    DEFERRED (do NOT add here): ``is_template`` (S3).
+
+    All probes are individually guarded and default to ``False`` / ``""`` on
+    any exception (mirrors ``_emit_function_signature_props`` pattern).
+    """
+    props: dict[str, Any] = {
+        "is_final": False,
+        "is_abstract": False,
+        "record_kind": "",
+    }
+
+    # --- is_final: walk children for CXX_FINAL_ATTR ---
+    with contextlib.suppress(Exception):
+        for child in cursor.get_children():
+            with contextlib.suppress(Exception):
+                if child.kind.name == "CXX_FINAL_ATTR":
+                    props["is_final"] = True
+                    break
+
+    # --- is_abstract: cursor.is_abstract_record() (present on pinned libclang per ADR-26 D10) ---
+    with contextlib.suppress(Exception):
+        fn = getattr(cursor, "is_abstract_record", None)
+        if callable(fn):
+            props["is_abstract"] = bool(fn())
+
+    # --- record_kind: derived from cursor.kind.name (ADR-26 D8) ---
+    with contextlib.suppress(Exception):
+        _KIND_TO_RECORD: dict[str, str] = {
+            "CLASS_DECL": "class",
+            "CLASS_TEMPLATE": "class",
+            "STRUCT_DECL": "struct",
+            "UNION_DECL": "union",
+        }
+        props["record_kind"] = _KIND_TO_RECORD.get(cursor.kind.name, "")
+
+    return props
+
+
+# ---------------------------------------------------------------------------
 # Per-file extraction helpers
 # ---------------------------------------------------------------------------
 
@@ -407,6 +801,17 @@ def _walk_cursor(
     for top-level use-sites.
     """
     kind = _kind_name(cursor)
+
+    # ------------------------------------------------------------------
+    # P3 (ADR-26 D9): Skip PARM_DECL in generic child recursion.
+    # Parameter nodes are emitted by the explicit get_arguments() loop in the
+    # parent function block (design §3.2 option (a)).  If generic recursion
+    # lands on a PARM_DECL it means the function block has already emitted (or
+    # will emit) the Parameter via the synthetic USR; returning here prevents
+    # duplicate vertices with the libclang-native PARM_DECL USR.
+    # ------------------------------------------------------------------
+    if kind == "PARM_DECL":
+        return
 
     # ------------------------------------------------------------------
     # Inclusion directives → INCLUDES edge
@@ -529,6 +934,16 @@ def _walk_cursor(
                 ) or _is_storage_static(cursor)
                 props["storage_class"] = _storage_class_value(cursor, node_type)
 
+            # P5 (ADR-26 D7/D10/D11): Function signature properties.
+            # DEFERRED (not emitted here): is_template (S3), is_virtual, is_override (S4).
+            if node_type == NODE_FUNCTION:
+                props.update(_emit_function_signature_props(cursor))
+
+            # P6 (ADR-26 D8/D10): Class qualifier properties.
+            # DEFERRED (not emitted here): is_template (S3).
+            if node_type == NODE_CLASS:
+                props.update(_emit_class_props(cursor))
+
             nodes.append(
                 NodeRecord(
                     label=node_type,
@@ -536,6 +951,25 @@ def _walk_cursor(
                     props=props,
                 )
             )
+
+            # P4 (ADR-26 §3.4): OF_TYPE for Field and GlobalVariable (VAR_DECL + static
+            # FIELD_DECL).  Emitted inside seen_usrs guard to avoid duplicate edges on
+            # re-encountered cursors (forward decl + definition).  SC-D-02 note: local
+            # VAR_DECL is still classified GlobalVariable by ADR-25 D2; the "Variable"
+            # label in scenarios is read as "the node emitted for the local VAR_DECL"
+            # regardless of label — no reclassification in S2.
+            if node_type in (NODE_FIELD, NODE_GLOBAL_VARIABLE):
+                with contextlib.suppress(Exception):
+                    of_type_usr = _get_or_create_type(cursor.type, nodes, edges, seen_usrs)
+                    if of_type_usr:
+                        edges.append(
+                            EdgeRecord(
+                                source_usr=usr,
+                                target_usr=of_type_usr,
+                                edge_type=EDGE_OF_TYPE,
+                                props={},
+                            )
+                        )
 
         # ------------------------------------------------------------------
         # Edge: parent → this symbol
@@ -634,6 +1068,75 @@ def _walk_cursor(
         next_enclosing_func = enclosing_func_usr
         if kind in _FUNCTION_CURSOR_KINDS and usr:
             next_enclosing_func = usr
+
+        # P2/P4 (ADR-26 D2, D3, D4, D5): Materialise the return-type Type node
+        # and emit the RETURNS edge (P4).  Ctors/dtors both yield "void" from
+        # libclang's result_type naturally — no special case needed (ADR-26 D5).
+        if kind in _FUNCTION_CURSOR_KINDS and usr:
+            with contextlib.suppress(Exception):
+                ret_usr = _get_or_create_type(cursor.result_type, nodes, edges, seen_usrs)
+                if ret_usr:
+                    edges.append(
+                        EdgeRecord(
+                            source_usr=usr,
+                            target_usr=ret_usr,
+                            edge_type=EDGE_RETURNS,
+                            props={},
+                        )
+                    )
+
+        # P3/P4 (ADR-26 D6, D9): Emit Parameter nodes + HAS_PARAM + OF_TYPE edges.
+        # Uses get_arguments() enumeration for deterministic positional ordering
+        # (design §3.2 option (a)).  OF_TYPE from each Parameter to its Type (P4).
+        if kind in _FUNCTION_CURSOR_KINDS and usr:
+            try:
+                for idx, param in enumerate(cursor.get_arguments()):
+                    param_usr = f"{usr}#param:{idx}"
+                    if param_usr not in seen_usrs:
+                        seen_usrs.add(param_usr)
+                        param_loc = _safe_location(param)
+                        # P4: create the parameter's Type node (and POINTS_TO/REFERS_TO chain).
+                        param_type_usr: str | None = None
+                        with contextlib.suppress(Exception):
+                            param_type_usr = _get_or_create_type(
+                                param.type, nodes, edges, seen_usrs
+                            )
+                        nodes.append(
+                            NodeRecord(
+                                label=NODE_PARAMETER,
+                                usr=param_usr,
+                                props={
+                                    "spelling": param.spelling or f"<param#{idx}>",
+                                    "name": param.spelling or "",
+                                    "index": idx,
+                                    "default_value": _render_default_value(param),
+                                    "file": param_loc[0],
+                                    "line": param_loc[1],
+                                    "col": param_loc[2],
+                                },
+                            )
+                        )
+                        edges.append(
+                            EdgeRecord(
+                                source_usr=usr,
+                                target_usr=param_usr,
+                                edge_type=EDGE_HAS_PARAM,
+                                props={"index": idx},
+                            )
+                        )
+                        # P4: OF_TYPE from Parameter to its Type.
+                        with contextlib.suppress(Exception):
+                            if param_type_usr:
+                                edges.append(
+                                    EdgeRecord(
+                                        source_usr=param_usr,
+                                        target_usr=param_type_usr,
+                                        edge_type=EDGE_OF_TYPE,
+                                        props={},
+                                    )
+                                )
+            except Exception:
+                pass
 
         # Recurse with this cursor as the new parent.
         for child in cursor.get_children():

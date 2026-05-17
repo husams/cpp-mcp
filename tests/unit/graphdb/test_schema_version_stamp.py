@@ -42,6 +42,7 @@ def _make_cursor(
     cursor.location.line = 1
     cursor.location.column = 1
     cursor.get_children.return_value = children or []
+    cursor.get_arguments.return_value = []  # P3: no params for these fixtures
     cursor.referenced = None
     return cursor
 

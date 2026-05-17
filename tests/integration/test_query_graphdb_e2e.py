@@ -50,8 +50,7 @@ async def _ingest(mcp_client: Any, db_uri: str) -> None:
     assert result.data is not None, f"ingest_code returned no data: {result!r}"
     data: dict[str, Any] = result.data  # type: ignore[assignment]
     assert "code" not in data, (
-        f"ingest_code returned error: code={data.get('code')!r}  "
-        f"message={data.get('message')!r}"
+        f"ingest_code returned error: code={data.get('code')!r}  message={data.get('message')!r}"
     )
 
 
@@ -75,8 +74,7 @@ async def _query(
     assert result.data is not None, f"query_graphdb returned no data: {result!r}"
     data: dict[str, Any] = result.data  # type: ignore[assignment]
     assert "code" not in data, (
-        f"query_graphdb returned error: code={data.get('code')!r}  "
-        f"message={data.get('message')!r}"
+        f"query_graphdb returned error: code={data.get('code')!r}  message={data.get('message')!r}"
     )
     return data
 
@@ -103,9 +101,7 @@ async def test_ac_q3_1_all_vertices_pinned_count(
     assert stats["rows_returned"] == _EXPECTED_VERTICES, (
         f"stats.rows_returned={stats['rows_returned']} but pinned={_EXPECTED_VERTICES}"
     )
-    assert len(rows) == _EXPECTED_VERTICES, (
-        f"len(rows)={len(rows)} but pinned={_EXPECTED_VERTICES}"
-    )
+    assert len(rows) == _EXPECTED_VERTICES, f"len(rows)={len(rows)} but pinned={_EXPECTED_VERTICES}"
     assert stats["truncated"] is False, "Expected truncated==False with row_limit=500"
     assert stats["backend"] == "indradb"
     assert "request_id" in data
@@ -180,6 +176,4 @@ async def test_ac_q3_4_row_limit_truncation(
 
     assert len(rows) == 50, f"Expected 50 rows (row_limit), got {len(rows)}"
     assert stats["rows_returned"] == 50
-    assert stats["truncated"] is True, (
-        "Expected truncated==True because 99 vertices > row_limit=50"
-    )
+    assert stats["truncated"] is True, "Expected truncated==True because 99 vertices > row_limit=50"

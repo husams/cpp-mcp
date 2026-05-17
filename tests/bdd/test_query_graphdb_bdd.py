@@ -138,9 +138,7 @@ def given_timeout_env_set(
     "the env var CPP_MCP_QUERY_TIMEOUT_SECONDS is unset",
     target_fixture="ctx",
 )
-def given_timeout_env_unset(
-    monkeypatch: pytest.MonkeyPatch, ctx: dict[str, Any]
-) -> dict[str, Any]:
+def given_timeout_env_unset(monkeypatch: pytest.MonkeyPatch, ctx: dict[str, Any]) -> dict[str, Any]:
     monkeypatch.delenv("CPP_MCP_QUERY_TIMEOUT_SECONDS", raising=False)
     return ctx
 
@@ -173,7 +171,7 @@ def given_mcp_server_built(ctx: dict[str, Any]) -> dict[str, Any]:
 
 @given(
     parsers.parse(
-        'an IndraDB schema introspector with a fake client containing a File vertex'
+        "an IndraDB schema introspector with a fake client containing a File vertex"
         ' stamped with schema version "{version}"'
     ),
     target_fixture="ctx",
@@ -370,9 +368,7 @@ def then_rows_length(n: int, executor_ctx: dict[str, Any]) -> None:
 
 @then("the result does not contain a code key")
 def then_no_code_key(executor_ctx: dict[str, Any]) -> None:
-    assert "code" not in executor_ctx["result"], (
-        "Must not return an error envelope on truncation"
-    )
+    assert "code" not in executor_ctx["result"], "Must not return an error envelope on truncation"
 
 
 # ---------------------------------------------------------------------------
@@ -386,9 +382,7 @@ def then_query_parse_error(fragment: str, executor_ctx: dict[str, Any]) -> None:
 
     exc = executor_ctx["raised"]
     assert exc is not None, "Expected QueryParseError to be raised, but no exception was raised"
-    assert isinstance(exc, QueryParseError), (
-        f"Expected QueryParseError, got {type(exc).__name__}"
-    )
+    assert isinstance(exc, QueryParseError), f"Expected QueryParseError, got {type(exc).__name__}"
     assert fragment in str(exc), f"Expected {fragment!r} in exception message: {exc!r}"
 
 
@@ -427,9 +421,7 @@ def then_timeout_seconds_plural(n: int, ctx: dict[str, Any]) -> None:
 @then("no such write symbols are present")
 def then_no_write_symbols(ctx: dict[str, Any]) -> None:
     write_symbols = ctx["write_symbols"]
-    assert write_symbols == [], (
-        f"IndraDB query executor exports write symbols: {write_symbols}"
-    )
+    assert write_symbols == [], f"IndraDB query executor exports write symbols: {write_symbols}"
 
 
 # ---------------------------------------------------------------------------

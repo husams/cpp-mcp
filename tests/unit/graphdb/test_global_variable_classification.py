@@ -196,3 +196,84 @@ class TestVarDeclClassification:
             assert matches and matches[0]["label"] == NODE_GLOBAL_VARIABLE, (
                 f"USR {usr!r} must be GlobalVariable"
             )
+
+
+# ---------------------------------------------------------------------------
+# P4 (SC-D-04) — GlobalVariable → OF_TYPE → Type
+# ---------------------------------------------------------------------------
+
+
+class TestGlobalVariableOfTypeEdge:
+    """SC-D-04: GlobalVariable node has exactly one outgoing OF_TYPE edge to its Type.
+
+    ADR-26 §3.4: OF_TYPE emitted inside the seen_usrs guard; one edge per node.
+    SC-D-02 note: local VAR_DECL cursors are still classified GlobalVariable by
+    ADR-25 D2 (no reclassification in S2).  The "Variable" label in scenarios
+    is read as "the node emitted for the local VAR_DECL", regardless of label.
+    """
+
+    def test_global_variable_has_of_type_edge(self, tmp_path: Path) -> None:
+        """const int MAX_SIZE = 1024 → 1 OF_TYPE edge from GlobalVariable to a Type node."""
+        from clang.cindex import StorageClass  # type: ignore[import-untyped]
+
+        from cpp_mcp.graphdb.schema import EDGE_OF_TYPE, NODE_TYPE
+
+        source = tmp_path / "global_of_type.cpp"
+        source.write_text("")
+        fname = str(source)
+
+        var = _make_var_decl_cursor(
+            usr="c:@MAX_SIZE",
+            spelling="MAX_SIZE",
+            file_name=fname,
+            storage_class=StorageClass.NONE,
+        )
+        # Simulate 'const int' type spelling
+        var.type.spelling = "const int"
+        tu = _make_tu(source, [var])
+
+        nodes, edges = extract_nodes_and_edges(tu, source)
+
+        of_edges = [
+            e for e in edges if e["edge_type"] == EDGE_OF_TYPE and e["source_usr"] == "c:@MAX_SIZE"
+        ]
+        assert len(of_edges) == 1, (
+            f"GlobalVariable must have exactly 1 OF_TYPE edge, got {len(of_edges)}"
+        )
+        type_node = next((n for n in nodes if n["usr"] == of_edges[0]["target_usr"]), None)
+        assert type_node is not None, "No Type node at OF_TYPE target for GlobalVariable"
+        assert type_node["label"] == NODE_TYPE, (
+            f"OF_TYPE target must be Type, got {type_node['label']!r}"
+        )
+        # SC-D-04: type spelling matches "const int" (source-form per ADR-26 D2)
+        assert type_node["props"]["spelling"] == "const int", (
+            f"Expected 'const int', got {type_node['props']['spelling']!r}"
+        )
+
+    def test_global_variable_of_type_no_duplicate(self, tmp_path: Path) -> None:
+        """OF_TYPE emitted exactly once per GlobalVariable (no duplicates)."""
+        from clang.cindex import StorageClass  # type: ignore[import-untyped]
+
+        from cpp_mcp.graphdb.schema import EDGE_OF_TYPE
+
+        source = tmp_path / "dedup_global.cpp"
+        source.write_text("")
+        fname = str(source)
+
+        var = _make_var_decl_cursor(
+            usr="c:@g_count",
+            spelling="g_count",
+            file_name=fname,
+            storage_class=StorageClass.NONE,
+        )
+        var.type.spelling = "int"
+        tu = _make_tu(source, [var])
+
+        _nodes, edges = extract_nodes_and_edges(tu, source)
+
+        of_edges = [
+            e for e in edges if e["edge_type"] == EDGE_OF_TYPE and e["source_usr"] == "c:@g_count"
+        ]
+        assert len(of_edges) == 1, (
+            f"Expected exactly 1 OF_TYPE edge from GlobalVariable, got {len(of_edges)}"
+        )

@@ -277,9 +277,7 @@ class TestArgValidation:
         executor, _fake = _make_executor_with_fake_client()
         # all_vertices takes no args
         with pytest.raises(QueryParseError, match="Unexpected args"):
-            executor._dispatch_query(
-                '{"query": "all_vertices", "args": {"extra": "oops"}}', 200
-            )
+            executor._dispatch_query('{"query": "all_vertices", "args": {"extra": "oops"}}', 200)
 
     def test_pipe_bad_direction_raises(self) -> None:
         from cpp_mcp.core.error_envelope import QueryParseError
@@ -288,8 +286,6 @@ class TestArgValidation:
         vid = str(uuid.uuid4())
         with pytest.raises(QueryParseError, match="direction"):
             executor._dispatch_query(
-                json.dumps(
-                    {"query": "pipe", "args": {"vertex_id": vid, "direction": "sideways"}}
-                ),
+                json.dumps({"query": "pipe", "args": {"vertex_id": vid, "direction": "sideways"}}),
                 200,
             )

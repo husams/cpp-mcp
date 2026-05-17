@@ -423,9 +423,9 @@ class Client:
             matched_e = [
                 e
                 for e in self._edges
-                if self._edge_props.get(
-                    (e.outbound_id, _type_name(e.t), e.inbound_id), {}
-                ).get(query.name)
+                if self._edge_props.get((e.outbound_id, _type_name(e.t), e.inbound_id), {}).get(
+                    query.name
+                )
                 == query.value
             ]
             return [matched_e] if matched_e else [[]]
@@ -469,9 +469,9 @@ class Client:
             edges = [
                 e
                 for e in self._edges
-                if self._edge_props.get(
-                    (e.outbound_id, _type_name(e.t), e.inbound_id), {}
-                ).get(source.name)
+                if self._edge_props.get((e.outbound_id, _type_name(e.t), e.inbound_id), {}).get(
+                    source.name
+                )
                 == source.value
             ]
 

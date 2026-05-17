@@ -73,6 +73,7 @@ def _make_member_cursor(
     cursor.location.line = 5
     cursor.location.column = 5
     cursor.get_children.return_value = children or []
+    cursor.get_arguments.return_value = []  # P3: no params for these test fixtures
     cursor.referenced = None
     # Remove is_static_member (not on pinned libclang) so fallback fires.
     del cursor.is_static_member

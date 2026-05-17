@@ -14,11 +14,7 @@ class TestIndraDbQueryExecutorPurity:
         # Import the module (it may not be in sys.modules yet).
         import cpp_mcp.graphdb.indradb_query_executor as m
 
-        write_names = [
-            name
-            for name in dir(m)
-            if name.startswith(("set_", "delete_"))
-        ]
+        write_names = [name for name in dir(m) if name.startswith(("set_", "delete_"))]
         assert not write_names, (
             f"indradb_query_executor exposes write-surface symbols: {write_names}. "
             "This violates AC-Q1-4 read-only purity requirement."
@@ -35,8 +31,7 @@ class TestIndraDbQueryExecutorPurity:
 
             # Restore module state.
             sys.modules["cpp_mcp.graphdb.indradb_query_executor"] = (
-                cached
-                or sys.modules["cpp_mcp.graphdb.indradb_query_executor"]
+                cached or sys.modules["cpp_mcp.graphdb.indradb_query_executor"]
             )
         finally:
             if original is not None:

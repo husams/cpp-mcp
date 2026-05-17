@@ -101,6 +101,7 @@ def _fake_tu(*, has_children: bool = True) -> Any:
         cursor.location.line = 1
         cursor.location.column = 1
         cursor.get_children.return_value = []
+        cursor.get_arguments.return_value = []  # P3: no params
         tu.cursor.get_children.return_value = [cursor]
     else:
         tu.cursor.get_children.return_value = []
@@ -215,6 +216,7 @@ def test_extract_nodes_types_from_schema(tmp_path: Path) -> None:
     func_cursor.location.line = 1
     func_cursor.location.column = 1
     func_cursor.get_children.return_value = []
+    func_cursor.get_arguments.return_value = []  # P3: no params
 
     tu = MagicMock()
     tu.cursor.get_children.return_value = [func_cursor]
@@ -255,6 +257,7 @@ def _make_func_cursor(file_path: Path, usr: str, spelling: str) -> Any:
     cursor.location.file.name = str(file_path)
     cursor.location.line = 1
     cursor.location.column = 1
+    cursor.get_arguments.return_value = []  # P3: no params
     return cursor
 
 

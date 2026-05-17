@@ -91,17 +91,25 @@ def test_schema_edge_type_in_all_edge_types(edge_type: str) -> None:
     assert edge_type in ALL_EDGE_TYPES, f"Edge type {edge_type!r} missing from ALL_EDGE_TYPES"
 
 
-def test_all_node_types_exactly_9() -> None:
-    """ALL_NODE_TYPES must have exactly 9 members after v7-S1 adds Field + GlobalVariable (ADR-25 D1)."""
-    assert len(ALL_NODE_TYPES) == 9, (
-        f"Expected 9 node types, got {len(ALL_NODE_TYPES)}: {ALL_NODE_TYPES}"
+def test_all_node_types_exactly_11() -> None:
+    """ALL_NODE_TYPES must have exactly 11 members.
+
+    v7-S1 added Field + GlobalVariable (ADR-25 D1).
+    v7-S2 adds Type + Parameter (ADR-26 D8/D9).
+    """
+    assert len(ALL_NODE_TYPES) == 11, (
+        f"Expected 11 node types, got {len(ALL_NODE_TYPES)}: {ALL_NODE_TYPES}"
     )
 
 
-def test_all_edge_types_exactly_7() -> None:
-    """ALL_EDGE_TYPES must have exactly 7 members — spec requirement (US-7/AC-2)."""
-    assert len(ALL_EDGE_TYPES) == 7, (
-        f"Expected 7 edge types, got {len(ALL_EDGE_TYPES)}: {ALL_EDGE_TYPES}"
+def test_all_edge_types_exactly_12() -> None:
+    """ALL_EDGE_TYPES must have exactly 12 members.
+
+    Original 7 edges (US-7/AC-2) + 5 v7-S2 edges (ADR-26 §1.2):
+    RETURNS, HAS_PARAM, OF_TYPE, POINTS_TO, REFERS_TO.
+    """
+    assert len(ALL_EDGE_TYPES) == 12, (
+        f"Expected 12 edge types, got {len(ALL_EDGE_TYPES)}: {ALL_EDGE_TYPES}"
     )
 
 
@@ -256,6 +264,7 @@ def test_idempotent_full_export_twice(tmp_path: Path) -> None:
     func_cursor.location.line = 1
     func_cursor.location.column = 1
     func_cursor.get_children.return_value = []
+    func_cursor.get_arguments.return_value = []  # P3: no params → no HAS_PARAM edges
 
     tu = MagicMock()
     tu.cursor.get_children.return_value = [func_cursor]

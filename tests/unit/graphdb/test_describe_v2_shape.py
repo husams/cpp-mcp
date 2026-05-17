@@ -386,3 +386,233 @@ class TestDescribeV2Shape:
 
         for key in ("schema_version", "backend", "node_types", "edge_types", "totals", "notes"):
             assert key in result, f"Missing required key {key!r} in v2 describe result"
+
+
+# ---------------------------------------------------------------------------
+# Fixture: v2-S2 graph — adds Type, Parameter, and the five new edges so the
+# introspector autopickup test can assert their surface (SC-H-01..SC-H-03).
+# ---------------------------------------------------------------------------
+
+
+def _make_v2_s2_graph() -> tuple[_FakeIndraDBClient, types.ModuleType]:
+    """Build an in-memory fake graph representing a v2 S2 export.
+
+    Contains:
+      - 1 File node stamped with schema_version="v2"
+      - 1 Function node
+      - 1 Parameter node
+      - 1 Type node (return type "int")
+      - 1 Type node (parameter type "const std::string &")
+      - RETURNS edge: Function → int-Type
+      - HAS_PARAM edge: Function → Parameter (index=0)
+      - OF_TYPE edge: Parameter → string-ref-Type
+      - POINTS_TO edge: int*-Type → int-Type  (pointer chain representative)
+      - REFERS_TO edge: string-ref-Type → string-Type (ref chain representative)
+
+    All five S2 edge types must appear so describe autopickup surfaces them.
+    """
+    from cpp_mcp.graphdb.schema_version import SCHEMA_VERSION
+
+    file_vid = uuid.uuid4()
+    func_vid = uuid.uuid4()
+    param_vid = uuid.uuid4()
+    type_int_vid = uuid.uuid4()
+    type_int_ptr_vid = uuid.uuid4()
+    type_str_ref_vid = uuid.uuid4()
+    type_str_vid = uuid.uuid4()
+
+    vertices = [
+        _FakeVertex(file_vid, "File"),
+        _FakeVertex(func_vid, "Function"),
+        _FakeVertex(param_vid, "Parameter"),
+        _FakeVertex(type_int_vid, "Type"),
+        _FakeVertex(type_int_ptr_vid, "Type"),
+        _FakeVertex(type_str_ref_vid, "Type"),
+        _FakeVertex(type_str_vid, "Type"),
+    ]
+
+    returns_edge = _FakeEdge(func_vid, "RETURNS", type_int_vid)
+    has_param_edge = _FakeEdge(func_vid, "HAS_PARAM", param_vid)
+    of_type_edge = _FakeEdge(param_vid, "OF_TYPE", type_str_ref_vid)
+    points_to_edge = _FakeEdge(type_int_ptr_vid, "POINTS_TO", type_int_vid)
+    refers_to_edge = _FakeEdge(type_str_ref_vid, "REFERS_TO", type_str_vid)
+
+    edges = [returns_edge, has_param_edge, of_type_edge, points_to_edge, refers_to_edge]
+
+    vertex_props: dict[uuid.UUID, dict[str, Any]] = {
+        file_vid: {
+            "path": "/src/s2.cpp",
+            "spelling": "/src/s2.cpp",
+            "schema_version": SCHEMA_VERSION,
+        },
+        func_vid: {
+            "spelling": "foo",
+            "type": "int (const std::string &)",
+            "file": "/src/s2.cpp",
+            "line": 1,
+            "col": 1,
+            "signature": "foo(const std::string &)",
+            "is_constexpr": False,
+            "is_noexcept": False,
+            "is_deleted": False,
+            "is_defaulted": False,
+            "cv_qualifiers": "",
+            "ref_qualifier": "",
+        },
+        param_vid: {
+            "spelling": "s",
+            "name": "s",
+            "index": 0,
+            "default_value": "",
+            "file": "/src/s2.cpp",
+            "line": 1,
+            "col": 10,
+        },
+        type_int_vid: {
+            "spelling": "int",
+            "is_const": False,
+            "is_volatile": False,
+            "is_pointer": False,
+            "is_reference": False,
+            "is_lvalue_reference": False,
+            "is_rvalue_reference": False,
+            "kind": "INT",
+        },
+        type_int_ptr_vid: {
+            "spelling": "int *",
+            "is_const": False,
+            "is_volatile": False,
+            "is_pointer": True,
+            "is_reference": False,
+            "is_lvalue_reference": False,
+            "is_rvalue_reference": False,
+            "kind": "POINTER",
+        },
+        type_str_ref_vid: {
+            "spelling": "const std::string &",
+            "is_const": False,
+            "is_volatile": False,
+            "is_pointer": False,
+            "is_reference": True,
+            "is_lvalue_reference": True,
+            "is_rvalue_reference": False,
+            "kind": "LVALUEREFERENCE",
+        },
+        type_str_vid: {
+            "spelling": "const std::string",
+            "is_const": True,
+            "is_volatile": False,
+            "is_pointer": False,
+            "is_reference": False,
+            "is_lvalue_reference": False,
+            "is_rvalue_reference": False,
+            "kind": "RECORD",
+        },
+    }
+
+    edge_props: dict[tuple[uuid.UUID, str, uuid.UUID], dict[str, Any]] = {
+        (func_vid, "RETURNS", type_int_vid): {},
+        (func_vid, "HAS_PARAM", param_vid): {"index": 0},
+        (param_vid, "OF_TYPE", type_str_ref_vid): {},
+        (type_int_ptr_vid, "POINTS_TO", type_int_vid): {},
+        (type_str_ref_vid, "REFERS_TO", type_str_vid): {},
+    }
+
+    client = _FakeIndraDBClient(
+        vertices=vertices, edges=edges, vertex_props=vertex_props, edge_props=edge_props
+    )
+    return client, _make_fake_indradb_module(client)
+
+
+# ---------------------------------------------------------------------------
+# Tests: S2 additions autopickup (SC-H-01..SC-H-03)
+# ---------------------------------------------------------------------------
+
+
+class TestDescribeS2Additions:
+    """describe_graph_schema autopickup surfaces S2 additions (SC-H-01..SC-H-03).
+
+    The introspector is read-only and surfaces labels live — no code changes
+    needed.  These tests verify that a graph seeded with Type, Parameter, and the
+    five new S2 edge types is reported correctly by the introspector.
+
+    ACs: S2-H.AC1 (SC-H-01), S2-H.AC2 (SC-H-02), S2-H.AC3 (SC-H-03).
+    Design ref: §4, §8 (introspector autopickup).
+    ADR-26 D9: no code change to introspector; labels surface automatically.
+    """
+
+    def test_sc_h_01_type_and_parameter_node_types_present(self) -> None:
+        """SC-H-01: describe surfaces 'Type' and 'Parameter' node types (S2-H.AC1)."""
+        client, fake_mod = _make_v2_s2_graph()
+
+        with patch.dict(sys.modules, {"indradb": fake_mod}):
+            introspector = _build_introspector(client)
+            result = introspector.describe(sample_size=10)
+
+        node_names = {nt["name"] for nt in result["node_types"]}
+        assert "Type" in node_names, (
+            f"Expected 'Type' node type in S2 describe output. Got: {node_names}"
+        )
+        assert "Parameter" in node_names, (
+            f"Expected 'Parameter' node type in S2 describe output. Got: {node_names}"
+        )
+
+    def test_sc_h_02_five_new_edge_types_present(self) -> None:
+        """SC-H-02: describe surfaces all five new S2 edge types (S2-H.AC2).
+
+        New edge types: RETURNS, HAS_PARAM, OF_TYPE, POINTS_TO, REFERS_TO.
+        """
+        client, fake_mod = _make_v2_s2_graph()
+
+        with patch.dict(sys.modules, {"indradb": fake_mod}):
+            introspector = _build_introspector(client)
+            result = introspector.describe(sample_size=10)
+
+        edge_names = {et["name"] for et in result["edge_types"]}
+        for new_edge in ("RETURNS", "HAS_PARAM", "OF_TYPE", "POINTS_TO", "REFERS_TO"):
+            assert new_edge in edge_names, (
+                f"Expected S2 edge type {new_edge!r} in describe output. Got: {edge_names}"
+            )
+
+    def test_sc_h_03_schema_version_still_v2(self) -> None:
+        """SC-H-03: describe_graph_schema reports schema_version='v2' (S2-H.AC3)."""
+        from cpp_mcp.graphdb.schema_version import SCHEMA_VERSION
+
+        client, fake_mod = _make_v2_s2_graph()
+
+        with patch.dict(sys.modules, {"indradb": fake_mod}):
+            introspector = _build_introspector(client)
+            result = introspector.describe(sample_size=10)
+
+        assert result["schema_version"] == "v2", (
+            f"Expected schema_version='v2' after S2, got {result['schema_version']!r}"
+        )
+        assert result["schema_version"] == SCHEMA_VERSION
+
+    def test_sc_h_05_v2_s1_graph_no_type_parameter_no_error(self) -> None:
+        """SC-H-05: v2-from-S1 graph with no Type/Parameter nodes does not error (S2-H.AC5).
+
+        When an S1-exported graph (schema_version='v2', but no Type or Parameter
+        nodes) is inspected after S2 ships, the introspector must not raise an
+        error.  It reports zero counts for Type and Parameter.
+        """
+        client, fake_mod = _make_v2_graph()  # S1 graph: no Type/Parameter vertices
+
+        with patch.dict(sys.modules, {"indradb": fake_mod}):
+            introspector = _build_introspector(client)
+            result = introspector.describe(sample_size=10)  # must not raise
+
+        assert isinstance(result, dict), "describe must return a dict even for S1-graph"
+        node_names = {nt["name"] for nt in result["node_types"]}
+        # Type and Parameter are absent in an S1 graph — zero-count or absent is fine.
+        for absent_label in ("Type", "Parameter"):
+            entry = next((nt for nt in result["node_types"] if nt["name"] == absent_label), None)
+            if entry is not None:
+                assert entry["count"] == 0, (
+                    f"S1-graph should show count=0 for {absent_label!r}, got {entry['count']}"
+                )
+        # The original S1 labels must still appear
+        assert "Field" in node_names, "Field should still appear in S1-graph describe"
+        assert "GlobalVariable" in node_names, (
+            "GlobalVariable should still appear in S1-graph describe"
+        )

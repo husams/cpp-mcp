@@ -91,9 +91,7 @@ def describe_graph_schema(
     except (DependencyMissingError, DBUnreachableError):
         raise
     except Exception as exc:
-        raise DBUnreachableError(
-            f"Cannot reach graph database at {db_uri!r}: {exc}"
-        ) from exc
+        raise DBUnreachableError(f"Cannot reach graph database at {db_uri!r}: {exc}") from exc
 
     timeout_s = _resolve_timeout_s()
 

@@ -151,9 +151,7 @@ class TestToolSchemas:
         """Graph query tools (v6) require db_uri instead of file_path."""
         tool = next(t for t in registered_tools if t.name == tool_name)
         required = tool.parameters.get("required", [])
-        assert "db_uri" in required, (
-            f"{tool_name}: 'db_uri' not in required={required}"
-        )
+        assert "db_uri" in required, f"{tool_name}: 'db_uri' not in required={required}"
 
     @pytest.mark.parametrize("tool_name", EXPECTED_TOOL_NAMES)
     def test_schema_additional_properties_false(self, tool_name: str, registered_tools):

@@ -110,9 +110,7 @@ class _FakeIndraDBClient:
         self._vertices = vertices or []
         self._edges = edges or []
         self._vertex_props: dict[uuid.UUID, dict[str, Any]] = vertex_props or {}
-        self._edge_props: dict[
-            tuple[uuid.UUID, str, uuid.UUID], dict[str, Any]
-        ] = edge_props or {}
+        self._edge_props: dict[tuple[uuid.UUID, str, uuid.UUID], dict[str, Any]] = edge_props or {}
         self._fail_on_ping = False
 
     def ping(self) -> None:
@@ -330,9 +328,7 @@ class TestSchemaVersionNotes:
             result = introspector.describe(sample_size=10)
 
         mismatch_notes = [n for n in result["notes"] if "v0" in n]
-        assert mismatch_notes, (
-            f"Expected mismatch note mentioning 'v0' in notes: {result['notes']}"
-        )
+        assert mismatch_notes, f"Expected mismatch note mentioning 'v0' in notes: {result['notes']}"
         assert SCHEMA_VERSION in mismatch_notes[0]
 
     def test_pre_v6_note_when_no_schema_version_stamp(self) -> None:

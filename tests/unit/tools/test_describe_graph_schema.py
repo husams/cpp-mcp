@@ -111,10 +111,13 @@ class TestDependencyMissing:
         mock_intr = _make_mock_introspector(
             connect_raises=DependencyMissingError("indradb not installed")
         )
-        with patch(
-            "cpp_mcp.tools.describe_graph_schema.select_introspector",
-            return_value=mock_intr,
-        ), pytest.raises(DependencyMissingError):
+        with (
+            patch(
+                "cpp_mcp.tools.describe_graph_schema.select_introspector",
+                return_value=mock_intr,
+            ),
+            pytest.raises(DependencyMissingError),
+        ):
             _call_tool(db_uri="indradb://localhost:27615")
 
 
@@ -127,23 +130,25 @@ class TestDbUnreachable:
     """Backend unreachable → DB_UNREACHABLE."""
 
     def test_db_unreachable_propagated(self) -> None:
-        mock_intr = _make_mock_introspector(
-            connect_raises=DBUnreachableError("cannot reach")
-        )
-        with patch(
-            "cpp_mcp.tools.describe_graph_schema.select_introspector",
-            return_value=mock_intr,
-        ), pytest.raises(DBUnreachableError):
+        mock_intr = _make_mock_introspector(connect_raises=DBUnreachableError("cannot reach"))
+        with (
+            patch(
+                "cpp_mcp.tools.describe_graph_schema.select_introspector",
+                return_value=mock_intr,
+            ),
+            pytest.raises(DBUnreachableError),
+        ):
             _call_tool(db_uri="indradb://localhost:27615")
 
     def test_unexpected_connect_error_wrapped_as_db_unreachable(self) -> None:
-        mock_intr = _make_mock_introspector(
-            connect_raises=RuntimeError("connection reset")
-        )
-        with patch(
-            "cpp_mcp.tools.describe_graph_schema.select_introspector",
-            return_value=mock_intr,
-        ), pytest.raises(DBUnreachableError):
+        mock_intr = _make_mock_introspector(connect_raises=RuntimeError("connection reset"))
+        with (
+            patch(
+                "cpp_mcp.tools.describe_graph_schema.select_introspector",
+                return_value=mock_intr,
+            ),
+            pytest.raises(DBUnreachableError),
+        ):
             _call_tool(db_uri="indradb://localhost:27615")
 
 
@@ -175,7 +180,8 @@ class TestQueryTimeout:
             patch(
                 "cpp_mcp.tools.describe_graph_schema._resolve_timeout_s",
                 return_value=1,
-            ),pytest.raises(QueryTimeoutError)
+            ),
+            pytest.raises(QueryTimeoutError),
         ):
             _call_tool(db_uri="indradb://localhost:27615")
 
@@ -263,9 +269,7 @@ class TestDbUriNonEcho:
             result = _call_tool(db_uri="bolt://localhost:7687")
 
         result_str = str(result)
-        assert "bolt://localhost:7687" not in result_str, (
-            f"db_uri leaked into result: {result_str}"
-        )
+        assert "bolt://localhost:7687" not in result_str, f"db_uri leaked into result: {result_str}"
 
 
 # ---------------------------------------------------------------------------

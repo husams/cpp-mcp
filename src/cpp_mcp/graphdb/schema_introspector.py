@@ -35,8 +35,7 @@ _SAFE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 # Static notes always present (AC-Q2-2).
 _NOTE_SAMPLE = (
-    "Property keys are inferred from a sample of nodes/edges; "
-    "rare properties may not appear."
+    "Property keys are inferred from a sample of nodes/edges; rare properties may not appear."
 )
 _NOTE_LIVE = "Counts are live as of this call; concurrent ingest_code runs may shift values."
 
@@ -166,9 +165,7 @@ class Neo4jSchemaIntrospector(SchemaIntrospector):
             driver.verify_connectivity()
             self._driver = driver
         except Exception as exc:
-            raise DBUnreachableError(
-                f"Cannot reach graph database at {uri!r}: {exc}"
-            ) from exc
+            raise DBUnreachableError(f"Cannot reach graph database at {uri!r}: {exc}") from exc
 
     def describe(self, sample_size: int) -> dict[str, Any]:
         """Run live schema queries and return the AC-Q2-2 result dict."""
@@ -317,9 +314,7 @@ class IndraDbSchemaIntrospector(SchemaIntrospector):
             client.ping()
             self._client = client
         except Exception as exc:
-            raise DBUnreachableError(
-                f"Cannot reach graph database at {uri!r}: {exc}"
-            ) from exc
+            raise DBUnreachableError(f"Cannot reach graph database at {uri!r}: {exc}") from exc
 
     def describe(self, sample_size: int) -> dict[str, Any]:
         """Run live schema queries and return the AC-Q2-2 result dict."""
@@ -386,9 +381,7 @@ class IndraDbSchemaIntrospector(SchemaIntrospector):
         keys: set[str] = set()
         for vertex in vertices:
             vid = vertex.id
-            for prop_batch in self._client.get(
-                indradb.SpecificVertexQuery(vid).properties()
-            ):
+            for prop_batch in self._client.get(indradb.SpecificVertexQuery(vid).properties()):
                 for vp in prop_batch:  # vp: VertexProperties
                     for np in vp.props:  # np: NamedProperty
                         keys.add(np.name)
@@ -439,9 +432,7 @@ class IndraDbSchemaIntrospector(SchemaIntrospector):
             vid = vertex.id
             found_any_prop = False
             found_schema_version = False
-            for prop_batch in self._client.get(
-                indradb.SpecificVertexQuery(vid).properties()
-            ):
+            for prop_batch in self._client.get(indradb.SpecificVertexQuery(vid).properties()):
                 for vp in prop_batch:  # vp: VertexProperties
                     for np in vp.props:  # np: NamedProperty
                         found_any_prop = True
