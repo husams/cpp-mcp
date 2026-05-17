@@ -1,0 +1,84 @@
+{
+  "ingest_code": {
+    "additionalProperties": false,
+    "properties": {
+      "file_path_or_dir": {
+        "description": "Absolute path to a C++ source file or directory to export.",
+        "type": "string"
+      },
+      "build_path": {
+        "description": "Absolute path to the build directory containing compile_commands.json. Required for graph export.",
+        "type": "string"
+      },
+      "db_uri": {
+        "description": "Bolt URI for the target graph database (e.g. 'bolt://localhost:7687').",
+        "type": "string"
+      },
+      "recursive": {
+        "default": false,
+        "description": "If true and file_path_or_dir is a directory, recurse into sub-directories.",
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "file_path_or_dir",
+      "build_path",
+      "db_uri"
+    ],
+    "type": "object"
+  },
+  "query_graphdb": {
+    "additionalProperties": false,
+    "properties": {
+      "db_uri": {
+        "description": "Backend URI: bolt://... (Neo4j) or indradb://... (IndraDB).",
+        "type": "string"
+      },
+      "query": {
+        "description": "Cypher string (Neo4j) or IndraDB JSON query shape (IndraDB).",
+        "type": "string"
+      },
+      "parameters": {
+        "anyOf": [
+          {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "description": "Bound parameters for Cypher queries (Neo4j only). Ignored for IndraDB."
+      },
+      "row_limit": {
+        "default": 200,
+        "description": "Maximum rows returned. Clamped to [1, 500]; default 200.",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "db_uri",
+      "query"
+    ],
+    "type": "object"
+  },
+  "describe_graph_schema": {
+    "additionalProperties": false,
+    "properties": {
+      "db_uri": {
+        "description": "Backend URI (e.g. 'indradb://localhost:27615' or 'bolt://localhost:7687').",
+        "type": "string"
+      },
+      "sample_size": {
+        "default": 100,
+        "description": "Per-type vertex sample for property key inference; clamped to [10, 1000].",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "db_uri"
+    ],
+    "type": "object"
+  }
+}

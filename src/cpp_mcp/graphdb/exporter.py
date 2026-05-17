@@ -29,9 +29,9 @@ Cursor kinds are mapped to schema node types:
     CXX_METHOD /
     CONSTRUCTOR /
     DESTRUCTOR         → Function
-  VAR_DECL /
-    FIELD_DECL /
-    PARM_DECL          → Variable
+  VAR_DECL             → GlobalVariable
+  FIELD_DECL           → Field (non-static) or GlobalVariable (static, ADR-25 D7)
+  PARM_DECL            → Variable (transitional until S2; ADR-25 D2)
   MACRO_DEFINITION     → Macro
   TYPEDEF_DECL /
     TYPE_ALIAS_DECL    → TypeAlias
@@ -70,8 +70,10 @@ from cpp_mcp.graphdb.schema import (
     EDGE_MEMBER_OF,
     EDGE_REFERENCES,
     NODE_CLASS,
+    NODE_FIELD,
     NODE_FILE,
     NODE_FUNCTION,
+    NODE_GLOBAL_VARIABLE,
     NODE_MACRO,
     NODE_NAMESPACE,
     NODE_TYPE_ALIAS,
@@ -101,9 +103,9 @@ _KIND_TO_NODE_TYPE: dict[str, str] = {
     "CONSTRUCTOR": NODE_FUNCTION,
     "DESTRUCTOR": NODE_FUNCTION,
     "FUNCTION_TEMPLATE": NODE_FUNCTION,
-    "VAR_DECL": NODE_VARIABLE,
-    "FIELD_DECL": NODE_VARIABLE,
-    "PARM_DECL": NODE_VARIABLE,
+    "VAR_DECL": NODE_GLOBAL_VARIABLE,  # D1: VAR_DECL → GlobalVariable (ADR-25)
+    # "FIELD_DECL" is classified at runtime via _classify_field (D7 static invariant)
+    "PARM_DECL": NODE_VARIABLE,  # D2: transitional; → Parameter in S2 (ADR-25)
     "MACRO_DEFINITION": NODE_MACRO,
     "TYPEDEF_DECL": NODE_TYPE_ALIAS,
     "TYPE_ALIAS_DECL": NODE_TYPE_ALIAS,
@@ -124,6 +126,223 @@ _REFERENCE_CURSOR_KINDS: frozenset[str] = frozenset(
 _FUNCTION_CURSOR_KINDS: frozenset[str] = frozenset(
     {"FUNCTION_DECL", "CXX_METHOD", "CONSTRUCTOR", "DESTRUCTOR", "FUNCTION_TEMPLATE"}
 )
+
+# ---------------------------------------------------------------------------
+# Classifier helpers (ADR-25 D1, D2, D7)
+# ---------------------------------------------------------------------------
+
+
+def _is_static_member(cursor: Any) -> bool:
+    """Return True if *cursor* is a static class data member.
+
+    Primary path: ``cursor.is_static_member()`` (libclang ≥ 3.8).
+    Fallback (F-3 per ADR-25): ``cursor.storage_class == StorageClass.STATIC``.
+
+    On the pinned libclang used in this project, ``Cursor.is_static_member``
+    is NOT available (verified at P2 implementation time — see
+    implementation-notes.md §Libclang capability probe). The fallback path
+    (StorageClass.STATIC) is therefore always exercised.
+    """
+    is_static = getattr(cursor, "is_static_member", None)
+    if callable(is_static):
+        try:
+            return bool(is_static())
+        except Exception:
+            pass
+    # Fallback: probe storage_class enum (always exercised on pinned libclang).
+    try:
+        from clang.cindex import StorageClass  # type: ignore[import-untyped]
+
+        return bool(cursor.storage_class == StorageClass.STATIC)
+    except Exception:
+        return False
+
+
+def _classify_field(cursor: Any) -> str:
+    """Classify a FIELD_DECL cursor to Field or GlobalVariable.
+
+    ADR-25 D7: static class data members are *unconditionally* GlobalVariable.
+    If a quirk causes the invariant check to raise, log a warning and
+    re-classify to GlobalVariable rather than emitting a Field with is_static.
+    """
+    try:
+        if _is_static_member(cursor):
+            return NODE_GLOBAL_VARIABLE
+    except Exception:
+        logger.warning(
+            "_is_static_member raised for cursor %r — re-classifying to GlobalVariable (D7)",
+            getattr(cursor, "spelling", "?"),
+        )
+        return NODE_GLOBAL_VARIABLE
+    return NODE_FIELD
+
+
+def _classify_node(cursor: Any) -> str | None:
+    """Return the node-type label for *cursor*, or None if the kind is not schema-relevant.
+
+    FIELD_DECL is resolved at runtime (D7 static-member invariant);
+    all other kinds use the static ``_KIND_TO_NODE_TYPE`` table.
+    """
+    kind = _kind_name(cursor)
+    if kind == "FIELD_DECL":
+        return _classify_field(cursor)
+    return _KIND_TO_NODE_TYPE.get(kind)
+
+
+# ---------------------------------------------------------------------------
+# MEMBER_OF access helper (ADR-25 D4, D5)
+# ---------------------------------------------------------------------------
+
+# Parent kinds that default to public access (struct, union per ISO C++).
+_PUBLIC_DEFAULT_PARENT_KINDS: frozenset[str] = frozenset({"STRUCT_DECL", "UNION_DECL"})
+
+
+def _resolve_access(cursor: Any, parent_kind: str | None) -> str:
+    """Return the C++ access specifier string for a member cursor.
+
+    Maps ``cursor.access_specifier`` (libclang ``AccessSpecifier`` enum) to
+    one of ``"public"``, ``"protected"``, or ``"private"``.
+
+    When libclang returns ``INVALID`` or ``NONE`` (e.g. for implicit specifiers
+    or union members — ADR-25 D4, F-4), the default is derived from
+    *parent_kind*:
+
+      - ``STRUCT_DECL`` or ``UNION_DECL`` → ``"public"``  (ISO C++ default)
+      - ``CLASS_DECL`` or ``CLASS_TEMPLATE`` → ``"private"``  (ISO C++ default)
+
+    If ``cursor.access_specifier`` is unavailable (libclang too old), the
+    parent-kind default is applied.
+    """
+    try:
+        from clang.cindex import AccessSpecifier  # type: ignore[import-untyped]
+
+        spec = cursor.access_specifier
+        if spec == AccessSpecifier.PUBLIC:
+            return "public"
+        if spec == AccessSpecifier.PROTECTED:
+            return "protected"
+        if spec == AccessSpecifier.PRIVATE:
+            return "private"
+        # INVALID or NONE — fall through to parent-kind default.
+    except Exception:
+        pass
+
+    # Parent-kind default (ADR-25 D4, design §4.4).
+    if parent_kind in _PUBLIC_DEFAULT_PARENT_KINDS:
+        return "public"
+    return "private"
+
+
+# ---------------------------------------------------------------------------
+# Variable / field property helpers (ADR-25 D6, design §4.1-4.3)
+# ---------------------------------------------------------------------------
+
+
+def _var_qualifiers(cursor: Any) -> tuple[bool, bool]:
+    """Return ``(is_const, is_constexpr)`` for a variable/field cursor.
+
+    ``is_constexpr`` is read from ``cursor.is_constexpr()`` when available
+    (not present on the pinned libclang — see implementation-notes.md §P4).
+    Token-scan fallback checks for the ``constexpr`` keyword in the cursor
+    extent.  Per design §4.1 and scenario S1-3-SC2, ``is_constexpr`` implies
+    ``is_const``.
+    """
+    try:
+        is_const = bool(cursor.type.is_const_qualified())
+    except Exception:
+        is_const = False
+
+    is_constexpr = False
+    method = getattr(cursor, "is_constexpr", None)
+    if callable(method):
+        try:
+            is_constexpr = bool(method())
+        except Exception:
+            is_constexpr = False
+
+    if not is_constexpr:
+        # Token-scan fallback: look for the 'constexpr' keyword in cursor extent.
+        try:
+            for tok in cursor.get_tokens():
+                if tok.spelling == "constexpr":
+                    is_constexpr = True
+                    break
+        except Exception:
+            pass
+
+    if is_constexpr:
+        is_const = True  # constexpr implies const (S1-3-SC2, design §4.1)
+
+    return is_const, is_constexpr
+
+
+def _is_storage_static(cursor: Any) -> bool:
+    """Return True when *cursor* has explicit STATIC storage class (VAR_DECL).
+
+    Used for the second clause of ``is_static`` on GlobalVariable nodes that
+    originate from VAR_DECL (design §4.2, §6).
+    """
+    try:
+        from clang.cindex import StorageClass  # type: ignore[import-untyped]
+
+        return bool(cursor.storage_class == StorageClass.STATIC)
+    except Exception:
+        return False
+
+
+def _storage_class_value(cursor: Any, node_type: str) -> str:
+    """Map *cursor* to the emitted ``storage_class`` string.
+
+    Priority (design §4.3, ADR-25 D6, EC1):
+
+    1. ``NODE_FIELD`` → ``"none"`` unconditionally (D6).
+    2. ``thread_local`` detected FIRST (via ``is_thread_local`` attr or token
+       scan) → ``"thread_local"`` (libclang has no THREAD_LOCAL enum value;
+       confirmed in P2 probe — see implementation-notes.md).
+    3. ``cursor.storage_class`` enum → ``"static"`` | ``"extern"`` | ``"none"``
+       etc.
+
+    The ``thread_local`` check must precede the enum check so that
+    ``extern thread_local`` resolves to ``"thread_local"`` (EC1).
+    """
+    if node_type == NODE_FIELD:
+        return "none"  # D6: non-static Field always gets "none"
+
+    # --- thread_local detection (enum value absent on pinned libclang) ---
+    is_tl = getattr(cursor, "is_thread_local", None)
+    if callable(is_tl):
+        try:
+            if bool(is_tl()):
+                return "thread_local"
+        except Exception:
+            pass
+
+    # Token-scan fallback for thread_local (handles extern thread_local, EC1).
+    try:
+        for tok in cursor.get_tokens():
+            if tok.spelling == "thread_local":
+                return "thread_local"
+    except Exception:
+        pass
+
+    # --- StorageClass enum mapping ---
+    try:
+        from clang.cindex import StorageClass  # type: ignore[import-untyped]
+
+        sc = cursor.storage_class
+        if sc == StorageClass.STATIC:
+            return "static"
+        if sc == StorageClass.EXTERN:
+            return "extern"
+        if sc == StorageClass.AUTO:
+            return "auto"
+        if sc == StorageClass.REGISTER:
+            return "register"
+    except Exception:
+        pass
+
+    return "none"
+
 
 # ---------------------------------------------------------------------------
 # Per-file extraction helpers
@@ -279,7 +498,7 @@ def _walk_cursor(
             )
         return
 
-    node_type = _KIND_TO_NODE_TYPE.get(kind)
+    node_type = _classify_node(cursor)
     usr = _safe_usr(cursor)
     spelling = _safe_spelling(cursor)
 
@@ -291,17 +510,30 @@ def _walk_cursor(
             except Exception:
                 type_spelling = ""
 
+            props: dict[str, Any] = {
+                "spelling": spelling,
+                "type": type_spelling,
+                "file": loc_file,
+                "line": loc_line,
+                "col": loc_col,
+            }
+            if node_type in (NODE_FIELD, NODE_GLOBAL_VARIABLE):
+                # P4: emit the four variable/field properties (design §6, ADR-25 D6).
+                is_const, is_constexpr = _var_qualifiers(cursor)
+                props["is_const"] = is_const
+                props["is_constexpr"] = is_constexpr
+                # is_static: True for static class data member (GlobalVariable from
+                # FIELD_DECL) OR for VAR_DECL with StorageClass.STATIC (design §4.2).
+                props["is_static"] = (
+                    node_type == NODE_GLOBAL_VARIABLE and kind == "FIELD_DECL"
+                ) or _is_storage_static(cursor)
+                props["storage_class"] = _storage_class_value(cursor, node_type)
+
             nodes.append(
                 NodeRecord(
                     label=node_type,
                     usr=usr,
-                    props={
-                        "spelling": spelling,
-                        "type": type_spelling,
-                        "file": loc_file,
-                        "line": loc_line,
-                        "col": loc_col,
-                    },
+                    props=props,
                 )
             )
 
@@ -309,19 +541,20 @@ def _walk_cursor(
         # Edge: parent → this symbol
         # ------------------------------------------------------------------
         if parent_usr:
-            # MEMBER_OF for fields / params inside a class/struct
+            # MEMBER_OF for fields / methods inside a class/struct (ADR-25 D5).
             if parent_kind in _MEMBER_PARENT_KINDS and kind in (
                 "FIELD_DECL",
                 "CXX_METHOD",
                 "CONSTRUCTOR",
                 "DESTRUCTOR",
             ):
+                access = _resolve_access(cursor, parent_kind)
                 edges.append(
                     EdgeRecord(
                         source_usr=usr,
                         target_usr=parent_usr,
                         edge_type=EDGE_MEMBER_OF,
-                        props={},
+                        props={"access": access},  # D5: access on every MEMBER_OF edge
                     )
                 )
             else:

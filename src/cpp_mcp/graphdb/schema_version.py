@@ -10,4 +10,4 @@ ADR-24: live-vs-cached schema discovery + opportunistic version stamp.
 
 from __future__ import annotations
 
-SCHEMA_VERSION: str = "v1"
+SCHEMA_VERSION: str = "v2"

@@ -91,10 +91,10 @@ def test_schema_edge_type_in_all_edge_types(edge_type: str) -> None:
     assert edge_type in ALL_EDGE_TYPES, f"Edge type {edge_type!r} missing from ALL_EDGE_TYPES"
 
 
-def test_all_node_types_exactly_7() -> None:
-    """ALL_NODE_TYPES must have exactly 7 members — spec requirement (US-7/AC-2)."""
-    assert len(ALL_NODE_TYPES) == 7, (
-        f"Expected 7 node types, got {len(ALL_NODE_TYPES)}: {ALL_NODE_TYPES}"
+def test_all_node_types_exactly_9() -> None:
+    """ALL_NODE_TYPES must have exactly 9 members after v7-S1 adds Field + GlobalVariable (ADR-25 D1)."""
+    assert len(ALL_NODE_TYPES) == 9, (
+        f"Expected 9 node types, got {len(ALL_NODE_TYPES)}: {ALL_NODE_TYPES}"
     )
 
 

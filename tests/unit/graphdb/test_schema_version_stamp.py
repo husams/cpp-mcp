@@ -11,7 +11,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from cpp_mcp.graphdb.exporter import extract_nodes_and_edges
-from cpp_mcp.graphdb.schema import NODE_FILE
+from cpp_mcp.graphdb.schema import ALL_NODE_TYPES, NODE_FIELD, NODE_FILE, NODE_GLOBAL_VARIABLE
 from cpp_mcp.graphdb.schema_version import SCHEMA_VERSION
 
 # ---------------------------------------------------------------------------
@@ -151,5 +151,15 @@ class TestSchemaVersionStamp:
             )
 
     def test_schema_version_constant_value(self) -> None:
-        """SCHEMA_VERSION is the string 'v1'."""
-        assert SCHEMA_VERSION == "v1"
+        """SCHEMA_VERSION is the string 'v2' (bumped in v7-S1, ADR-25 D8)."""
+        assert SCHEMA_VERSION == "v2"
+
+    def test_new_node_type_constants_exist(self) -> None:
+        """NODE_FIELD and NODE_GLOBAL_VARIABLE constants exist (v7-S1, ADR-25 D1)."""
+        assert NODE_FIELD == "Field"
+        assert NODE_GLOBAL_VARIABLE == "GlobalVariable"
+
+    def test_new_node_types_in_all_node_types(self) -> None:
+        """NODE_FIELD and NODE_GLOBAL_VARIABLE appear in ALL_NODE_TYPES."""
+        assert NODE_FIELD in ALL_NODE_TYPES
+        assert NODE_GLOBAL_VARIABLE in ALL_NODE_TYPES
