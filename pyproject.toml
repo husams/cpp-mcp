@@ -15,7 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 graphdb-neo4j = ["neo4j>=5,<6"]
-graphdb-indradb = ["indradb>=3.0,<4"]
+graphdb-indradb = ["indradb>=3.0,<4", "protobuf<4"]
 graphdb = ["cpp-mcp[graphdb-neo4j]", "cpp-mcp[graphdb-indradb]"]
 dev = [
     "ruff",
@@ -52,12 +52,15 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-ra"
+addopts = "-ra -m 'not integration'"
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
 markers = [
     "libclang: requires system libclang",
     "neo4j: requires NEO4J_TEST_URI",
     "indradb: requires INDRADB_TEST_URI",
+    "integration: marks tests that require live services or env-gated resources (skipped by default)",
     "SC_US_1_1: Story 5 US-1 scenario 1",
     "SC_US_1_5: Story 5 US-1 scenario 5",
     "SC_US_1_6: Story 5 US-1 scenario 6",

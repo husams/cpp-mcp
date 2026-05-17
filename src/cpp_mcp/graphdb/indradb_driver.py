@@ -4,11 +4,11 @@
 This module imports it lazily inside :meth:`IndraDBDriver.connect` so that the
 rest of the server starts without it installed (C-G5).
 
-Idempotency strategy (ADR-14, ADR-7):
-  - Nodes: ``create_vertex(Vertex(uuid5(NS_CPPMCP_USR, usr), label))``
-    — IndraDB's create_vertex is a no-op on existing identical record.
-  - Edges: ``create_edge(Edge(src_uuid, edge_type, tgt_uuid))``
-    — keyed by (outbound, type, inbound); repeated call is a no-op.
+Idempotency + insert-counting strategy (ADR-14, ADR-17):
+  - Nodes: pre-check ``get(SpecificVertexQuery(vid))`` before each
+    ``create_vertex``; increment insert counter only when absent.
+  - Edges: pre-check ``get(SpecificEdgeQuery(edge))`` before each
+    ``create_edge``; increment insert counter only when absent.
 
 Property serialisation follows ADR-15: JSON scalars pass through; non-scalars
 are JSON-encoded; unencodable objects fall back to repr() with a debug log.
@@ -106,7 +106,8 @@ class IndraDBDriver:
         except ImportError as exc:
             raise DependencyMissingError(
                 "indradb Python driver is not installed. "
-                'Install with: pip install "cpp-mcp[graphdb-indradb]"'
+                "Install with: uv sync --extra graphdb-indradb  "
+                'or: pip install "cpp-mcp[graphdb-indradb]"'
             ) from exc
 
         host = _strip_scheme(uri)
@@ -124,23 +125,35 @@ class IndraDBDriver:
     def upsert_nodes(self, batch: list[NodeRecord]) -> int:
         """Upsert *batch* nodes using uuid5(NS_CPPMCP_USR, usr) as vertex id.
 
-        Idempotency: same USR → same UUID → IndraDB create_vertex is a no-op on
-        repeat.  Property writes use overwrite semantics, so a re-export yields
-        identical values (ADR-14, ADR-15).
+        Insert-counting strategy (ADR-17): per-record ``get(SpecificVertexQuery)``
+        pre-check; ``create_vertex`` is called only when absent; the insert counter
+        increments only on actual creation.  Property writes always overwrite
+        (ADR-14, ADR-15) so re-exports stay idempotent.
 
         Returns:
-            Number of records processed.
+            Number of nodes actually created (inserts only); 0 on re-export of
+            identical records.
         """
         if not batch or self._client is None:
             return 0
 
         import indradb  # re-import is safe; module already in sys.modules after connect()
 
+        inserted = 0
         for rec in batch:
             usr = rec["usr"]
             label = rec["label"]
             vid = uuid.uuid5(NS_CPPMCP_USR, usr)
-            self._client.create_vertex(indradb.Vertex(vid, label))
+            # ``client.get()`` returns a lazy generator of batches; flatten to
+            # check actual item presence (ADR-17, defect found in live e2e run).
+            existing = any(
+                item
+                for batch in self._client.get(indradb.SpecificVertexQuery(vid))
+                for item in batch
+            )
+            if not existing:
+                self._client.create_vertex(indradb.Vertex(vid, label))
+                inserted += 1
             props: dict[str, Any] = dict(rec["props"])
             props["usr"] = usr
             for key, value in props.items():
@@ -151,7 +164,7 @@ class IndraDBDriver:
                     value=norm,
                 )
 
-        return len(batch)
+        return inserted
 
     # ------------------------------------------------------------------
     # upsert_edges
@@ -160,22 +173,44 @@ class IndraDBDriver:
     def upsert_edges(self, batch: list[EdgeRecord]) -> int:
         """Upsert *batch* edges.
 
-        Idempotency: IndraDB edges are keyed by (outbound_id, type, inbound_id);
-        calling create_edge twice with the same triple is a no-op (ADR-14).
+        Insert-counting strategy (ADR-17): per-record ``get(SpecificEdgeQuery)``
+        pre-check; ``create_edge`` is called only when absent; the insert counter
+        increments only on actual creation.  Property writes always overwrite
+        (ADR-14, ADR-15) so re-exports stay idempotent.
 
         Returns:
-            Number of records processed.
+            Number of edges actually created (inserts only); 0 on re-export of
+            identical records.
         """
         if not batch or self._client is None:
             return 0
 
         import indradb  # re-import is safe; module already in sys.modules after connect()
 
+        inserted = 0
         for rec in batch:
             src_vid = uuid.uuid5(NS_CPPMCP_USR, rec["source_usr"])
             tgt_vid = uuid.uuid5(NS_CPPMCP_USR, rec["target_usr"])
             edge = indradb.Edge(outbound_id=src_vid, t=rec["edge_type"], inbound_id=tgt_vid)
-            self._client.create_edge(edge)
+            # ``client.get()`` returns a lazy generator of batches; flatten to
+            # check actual item presence (ADR-17, defect found in live e2e run).
+            existing = any(
+                item
+                for batch in self._client.get(indradb.SpecificEdgeQuery(edge))
+                for item in batch
+            )
+            if not existing:
+                self._client.create_edge(edge)
+                # IndraDB silently drops create_edge when either endpoint vertex
+                # does not exist in the store.  Verify storage succeeded before
+                # counting the insert (discovered during S6 live e2e run).
+                stored = any(
+                    item
+                    for batch in self._client.get(indradb.SpecificEdgeQuery(edge))
+                    for item in batch
+                )
+                if stored:
+                    inserted += 1
             for key, value in rec["props"].items():
                 norm = _normalise_prop(key, value)
                 self._client.set_properties(
@@ -184,7 +219,7 @@ class IndraDBDriver:
                     value=norm,
                 )
 
-        return len(batch)
+        return inserted
 
     # ------------------------------------------------------------------
     # close

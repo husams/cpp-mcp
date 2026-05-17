@@ -26,7 +26,7 @@ from typing import Any
 from uuid import UUID
 
 
-def _type_name(t: "Identifier | str") -> str:
+def _type_name(t: Identifier | str) -> str:
     """Normalise an edge/vertex type to a plain str.
 
     The real indradb 3.x Client accepts plain str for Vertex.t and Edge.t;
@@ -55,7 +55,7 @@ class Identifier:
 class Vertex:
     """Fake IndraDB Vertex (id: UUID, t: Identifier | str)."""
 
-    def __init__(self, id: UUID, t: "Identifier | str") -> None:
+    def __init__(self, id: UUID, t: Identifier | str) -> None:
         self.id = id
         self.t = t
 
@@ -76,7 +76,7 @@ class Vertex:
 class Edge:
     """Fake IndraDB Edge (outbound_id: UUID, t: Identifier | str, inbound_id: UUID)."""
 
-    def __init__(self, outbound_id: UUID, t: "Identifier | str", inbound_id: UUID) -> None:
+    def __init__(self, outbound_id: UUID, t: Identifier | str, inbound_id: UUID) -> None:
         self.outbound_id = outbound_id
         self.t = t
         self.inbound_id = inbound_id
@@ -198,6 +198,23 @@ class Client:
             return False
         self._edges.add(edge)
         return True
+
+    def get(self, query: SpecificVertexQuery | SpecificEdgeQuery) -> list[list[Any]]:
+        """Return matching records for a query (used by IndraDBDriver pre-existence checks).
+
+        The real ``indradb.Client.get()`` is a gRPC streaming call that yields
+        *batches* of results — each batch is a list of items.  To match that
+        shape, this fake returns ``[[item]]`` when found and ``[[]]`` when not
+        found, so that callers using the batch-flatten idiom
+        ``any(item for batch in client.get(q) for item in batch)``
+        work correctly against both the real daemon and this fake.
+        """
+        if isinstance(query, SpecificVertexQuery):
+            vertex = self._vertices.get(query.vid)
+            return [[vertex]] if vertex is not None else [[]]
+        if isinstance(query, SpecificEdgeQuery):
+            return [[query.edge]] if query.edge in self._edges else [[]]
+        return [[]]
 
     # ------------------------------------------------------------------
     # Introspection helpers (used by unit tests and BDD step impls)

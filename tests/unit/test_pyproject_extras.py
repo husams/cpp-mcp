@@ -36,9 +36,9 @@ def test_neo4j_pin() -> None:
 
 def test_indradb_pin() -> None:
     extras = _load_extras()
-    assert extras["graphdb-indradb"] == ["indradb>=3.0,<4"], (
-        f"graphdb-indradb must pin to 'indradb>=3.0,<4', got {extras['graphdb-indradb']}"
-    )
+    expected = ["indradb>=3.0,<4", "protobuf<4"]
+    got = extras["graphdb-indradb"]
+    assert got == expected, f"graphdb-indradb must pin to {expected!r}, got {got!r}"
 
 
 def test_graphdb_meta_references_neo4j() -> None:

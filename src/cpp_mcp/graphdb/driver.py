@@ -69,7 +69,9 @@ class GraphDriver(Protocol):
         """Write *batch* of nodes using MERGE-on-USR semantics.
 
         Returns:
-            Number of nodes actually written (created or updated).
+            Number of nodes **actually created** (inserts only).  A repeated
+            upsert of identical ``(label, usr)`` records returns 0 — the
+            operation is idempotent and the return value proves it (ADR-17).
         """
         ...
 
@@ -77,7 +79,8 @@ class GraphDriver(Protocol):
         """Write *batch* of edges using MERGE semantics.
 
         Returns:
-            Number of edges actually written (created or updated).
+            Number of edges **actually created** (inserts only).  A repeated
+            upsert of identical ``(src, type, tgt)`` returns 0 (ADR-17).
         """
         ...
 

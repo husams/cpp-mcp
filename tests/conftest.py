@@ -11,6 +11,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+import pytest_asyncio
+
 # ---------------------------------------------------------------------------
 # libclang auto-discovery
 # ---------------------------------------------------------------------------
@@ -66,3 +68,40 @@ def _configure_libclang() -> None:
 
 
 _configure_libclang()
+
+
+# ---------------------------------------------------------------------------
+# Session-scoped in-process MCP client (ADR-18 / S5)
+# ---------------------------------------------------------------------------
+
+# Absolute path to the C++ fixture repository used by integration tests.
+_TEST_REPO_ROOT = str(Path(__file__).parent.parent / "test-repo")
+
+
+@pytest_asyncio.fixture(scope="session", loop_scope="session")
+async def mcp_client():  # type: ignore[return]
+    """Session-scoped FastMCP client wired to an in-process build_server().
+
+    ADR-18: uses ``fastmcp.Client(server_instance)`` — in-process transport,
+    no subprocess, same event loop.  CPP_MCP_ALLOWED_ROOTS must be set before
+    entering the Client context so that the lifespan's ``load_config()`` call
+    succeeds.
+
+    The env var is saved and restored so parallel test processes are not
+    contaminated.
+    """
+    from fastmcp import Client
+
+    from cpp_mcp.server.app import build_server
+
+    prev = os.environ.get("CPP_MCP_ALLOWED_ROOTS")
+    os.environ["CPP_MCP_ALLOWED_ROOTS"] = _TEST_REPO_ROOT
+    try:
+        server = build_server()
+        async with Client(server) as client:
+            yield client
+    finally:
+        if prev is None:
+            os.environ.pop("CPP_MCP_ALLOWED_ROOTS", None)
+        else:
+            os.environ["CPP_MCP_ALLOWED_ROOTS"] = prev

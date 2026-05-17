@@ -508,10 +508,24 @@ def export_file(
         (``export_directory`` catches per-file exceptions for partial success).
     """
     nodes, edges = extract_nodes_and_edges(tu, file_path)
+    nodes_attempted = len(nodes)
+    edges_attempted = len(edges)
     nodes_written = driver.upsert_nodes(nodes)
     edges_written = driver.upsert_edges(edges)
-    logger.debug("Exported %s: %d nodes, %d edges", file_path.name, nodes_written, edges_written)
-    return {"nodes_written": nodes_written, "edges_written": edges_written}
+    logger.debug(
+        "Exported %s: %d/%d nodes, %d/%d edges",
+        file_path.name,
+        nodes_written,
+        nodes_attempted,
+        edges_written,
+        edges_attempted,
+    )
+    return {
+        "nodes_written": nodes_written,
+        "edges_written": edges_written,
+        "nodes_attempted": nodes_attempted,
+        "edges_attempted": edges_attempted,
+    }
 
 
 # ---------------------------------------------------------------------------

@@ -48,6 +48,12 @@ uv sync
 uv sync --extra dev
 
 # With Neo4j graphdb support (for cpp_export_to_graphdb)
+uv sync --extra graphdb-neo4j
+
+# With IndraDB graphdb support (for cpp_export_to_graphdb)
+uv sync --extra graphdb-indradb
+
+# With both graphdb backends
 uv sync --extra graphdb
 ```
 
@@ -185,8 +191,8 @@ Supported schemes: `indradb://`, `grpc://`, `indradb+grpc://`. Default port: 276
 # Install driver
 uv sync --extra graphdb-indradb
 
-# Start a local IndraDB instance (docker compose fragment provided)
-docker compose -f tests/fixtures/indradb-compose.yml up -d
+# Start a local IndraDB instance (see ## Local development (IndraDB) below)
+indradb-server memory
 ```
 
 License posture: IndraDB daemon and Python client are MPL-2.0 (file-level copyleft; does not propagate to cpp-mcp callers).
@@ -200,6 +206,45 @@ uv sync --extra graphdb   # installs neo4j + indradb drivers
 ```
 
 See [`.claude/handoff/v3/runbook.md`](.claude/handoff/v3/runbook.md) for the full URI scheme table, daemon bring-up commands, error-code reference, and license posture details.
+
+---
+
+## Local development (IndraDB)
+
+The canonical path for running a local IndraDB daemon is `cargo install indradb`.
+There is no supported Docker image (the `indradb/indradb` Docker Hub namespace is
+empty — see ADR-16).
+
+**One-time setup (requires Rust toolchain):**
+
+```bash
+# Install rustup if not already present
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Install the IndraDB server binary (~30 seconds on a fast machine)
+cargo install indradb
+```
+
+**Start the in-memory daemon (no disk state, ideal for testing):**
+
+```bash
+indradb-server memory
+```
+
+The gRPC endpoint listens on `127.0.0.1:27615` by default.
+
+**Run integration tests against the live daemon:**
+
+```bash
+export INDRADB_TEST_URI="grpc://127.0.0.1:27615"
+uv run pytest -m "integration and indradb" tests/integration/test_indradb_e2e.py -q
+```
+
+Or let the fixture autostart the daemon for you (requires `indradb-server` on `$PATH`):
+
+```bash
+INDRADB_AUTOSTART=1 uv run pytest -m "integration and indradb" tests/integration/test_indradb_e2e.py -q
+```
 
 ---
 

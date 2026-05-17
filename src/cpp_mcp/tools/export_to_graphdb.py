@@ -61,7 +61,12 @@ def _do_export_to_graphdb(
         recursive: If True, recurse into sub-directories.
 
     Returns:
-        Success payload: ``{files_processed, nodes_written, edges_written, errors}``.
+        Success payload: ``{files_processed, nodes_written, edges_written,
+        nodes_attempted, edges_attempted, errors}``.
+
+        ``nodes_written`` / ``edges_written`` count only records that were
+        **actually created** (inserts).  ``nodes_attempted`` / ``edges_attempted``
+        reflect the total batch sizes sent to the driver (ADR-17).
 
     Raises:
         :exc:`InvalidArgumentError`: Missing / empty ``db_uri`` or ``build_path``,
@@ -101,6 +106,8 @@ def _do_export_to_graphdb(
 
     total_nodes = 0
     total_edges = 0
+    total_nodes_attempted = 0
+    total_edges_attempted = 0
     errors: list[dict[str, Any]] = []
     files_processed = 0
 
@@ -115,6 +122,8 @@ def _do_export_to_graphdb(
             result = export_file(cpp_file, tu, driver)
             total_nodes += result["nodes_written"]
             total_edges += result["edges_written"]
+            total_nodes_attempted += result["nodes_attempted"]
+            total_edges_attempted += result["edges_attempted"]
             files_processed += 1
         except Exception as exc:
             logger.warning("Export failed for %s: %r", cpp_file, exc)
@@ -133,6 +142,8 @@ def _do_export_to_graphdb(
         "files_processed": files_processed,
         "nodes_written": total_nodes,
         "edges_written": total_edges,
+        "nodes_attempted": total_nodes_attempted,
+        "edges_attempted": total_edges_attempted,
         "errors": errors,
         "request_id": request_id,
     }
@@ -162,7 +173,8 @@ def cpp_export_to_graphdb(
         recursive: If True, recurse into sub-directories.
 
     Returns:
-        Success payload: ``{files_processed, nodes_written, edges_written, errors}``.
+        Success payload: ``{files_processed, nodes_written, edges_written,
+        nodes_attempted, edges_attempted, errors}`` (ADR-17).
     """
     return _do_export_to_graphdb(
         file_path_or_dir=file_path_or_dir,

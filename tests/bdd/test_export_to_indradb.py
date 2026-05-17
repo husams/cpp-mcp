@@ -464,6 +464,11 @@ def then_live_file_node(ctx: dict[str, Any]) -> None:
 
 @then("the node count after the second run equals the recorded count")
 def then_live_node_count_stable(ctx: dict[str, Any]) -> None:
-    recorded = ctx.get("recorded_node_count", 0)
-    current = ctx.get("result", {}).get("nodes_written", 0)
-    assert current == recorded, f"Live node count changed: recorded={recorded}, current={current}"
+    # ADR-17: nodes_written counts inserts only; idempotent re-export must return 0.
+    # "recorded_node_count" captured run 1's nodes_written (>= 1 on first export).
+    # Run 2 should return 0 because all nodes already exist.
+    current = ctx.get("result", {}).get("nodes_written", -1)
+    assert current == 0, (
+        f"Idempotent re-export should write 0 nodes (ADR-17), got {current}. "
+        f"First run wrote {ctx.get('recorded_node_count')} nodes."
+    )

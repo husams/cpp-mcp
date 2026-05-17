@@ -52,7 +52,8 @@ class Neo4jDriver:
         except ImportError as exc:
             raise DependencyMissingError(
                 "neo4j Python driver is not installed. "
-                'Install with: pip install "cpp-mcp[graphdb-neo4j]"'
+                "Install with: uv sync --extra graphdb-neo4j  "
+                'or: pip install "cpp-mcp[graphdb-neo4j]"'
             ) from exc
 
         try:
@@ -73,6 +74,8 @@ class Neo4jDriver:
         """Upsert *batch* nodes in a single transaction.
 
         Uses ``MERGE (n:Label {usr: $usr}) SET n += $props`` per node.
+        Insert count is read from ``ResultSummary.counters.nodes_created``
+        (ADR-17): MERGE-only rows are *not* counted (attempt semantics fixed).
         """
         if not batch or self._driver is None:
             return 0
@@ -84,10 +87,10 @@ class Neo4jDriver:
                 usr = rec["usr"]
                 props = dict(rec["props"])
                 props["usr"] = usr  # ensure USR is in props for retrieval
-                query = f"MERGE (n:`{label}` {{usr: $usr}}) SET n += $props RETURN n"
+                query = f"MERGE (n:`{label}` {{usr: $usr}}) SET n += $props"
                 result = tx.run(query, usr=usr, props=props)
-                if result.single() is not None:
-                    written += 1
+                summary = result.consume()
+                written += summary.counters.nodes_created
             return written
 
         with self._driver.session() as sess:
@@ -101,6 +104,8 @@ class Neo4jDriver:
         """Upsert *batch* edges in a single transaction.
 
         Uses MERGE on (source_usr, target_usr, edge_type) as the natural key.
+        Insert count is read from ``ResultSummary.counters.relationships_created``
+        (ADR-17): MERGE-only rows are *not* counted (attempt semantics fixed).
         """
         if not batch or self._driver is None:
             return 0
@@ -115,12 +120,11 @@ class Neo4jDriver:
                 query = (
                     "MATCH (a {usr: $src}), (b {usr: $tgt}) "
                     f"MERGE (a)-[r:`{etype}`]->(b) "
-                    "SET r += $props "
-                    "RETURN r"
+                    "SET r += $props"
                 )
                 result = tx.run(query, src=src, tgt=tgt, props=props)
-                if result.single() is not None:
-                    written += 1
+                summary = result.consume()
+                written += summary.counters.relationships_created
             return written
 
         with self._driver.session() as sess:

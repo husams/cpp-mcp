@@ -96,21 +96,44 @@ export NEO4J_TEST_URI="bolt://localhost:7687"
 uv run pytest -q tests/bdd/test_export_to_graphdb.py
 ```
 
-### IndraDB (RocksDB backend)
+### IndraDB (in-memory daemon via cargo install)
 
-A `docker compose` fragment is provided at `tests/fixtures/indradb-compose.yml`:
+> **Note (ADR-16, 2026-05-17):** The Docker image that was referenced in the
+> v3 ship (`indradb` namespace on Docker Hub, tag `5.0.0`) does not exist —
+> `docker pull` returns 404.  The only supported local-dev path is
+> `cargo install indradb`.  The `tests/fixtures/indradb-compose.yml` file has
+> been deleted (see ADR-16 for rationale).
+
+**One-time setup:**
 
 ```bash
-docker compose -f tests/fixtures/indradb-compose.yml up -d
+# Install rustup if not already present
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Install the IndraDB server binary
+cargo install indradb
 ```
 
-Default gRPC URI: `indradb://localhost:27615`
+**Start the in-memory daemon:**
+
+```bash
+indradb-server memory
+```
+
+Default gRPC URI: `grpc://127.0.0.1:27615`
 
 Enable real-IndraDB integration tests:
 
 ```bash
-export INDRADB_TEST_URI="indradb://localhost:27615"
+export INDRADB_TEST_URI="grpc://127.0.0.1:27615"
 uv run pytest -q tests/bdd/test_export_to_indradb.py
+```
+
+Or use autostart (v4+, requires `indradb-server` on `$PATH`):
+
+```bash
+INDRADB_AUTOSTART=1 INDRADB_TEST_URI=grpc://127.0.0.1:27615 \
+  uv run pytest -m "integration and indradb" tests/integration/test_indradb_e2e.py -q
 ```
 
 Live integration tests are gated on the environment variable; they are skipped
