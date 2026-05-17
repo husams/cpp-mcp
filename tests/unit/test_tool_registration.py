@@ -1,8 +1,9 @@
-"""Unit tests for Story S3 tool registration (US-M3 acceptance criteria).
+"""Unit tests for tool registration (US-M3 / v6 S2 + S4 acceptance criteria).
 
-SC_USM3_1: 7 tools registered with v5 names (no cpp_ prefix; ingest_code).
+SC_USM3_1: 9 tools registered with v5/v6 names (no cpp_ prefix);
+           v6 S2 adds query_graphdb (7→8); v6 S4 adds describe_graph_schema (8→9).
 SC_USM3_2: Tool input schemas exclude dependency parameters.
-SC_USM3_3: Tool descriptions match v5 description strings.
+SC_USM3_3: Tool descriptions match expected description strings.
 SC_USM3_4: No schema property named session/allowed_roots/default_flags/ast_*.
 """
 
@@ -24,6 +25,8 @@ EXPECTED_TOOL_NAMES: frozenset[str] = frozenset(
         "get_header_info",
         "get_preprocessor_state",
         "ingest_code",
+        "query_graphdb",
+        "describe_graph_schema",
     }
 )
 
@@ -48,7 +51,7 @@ def registered_tools() -> list[Any]:
 
 
 class TestToolCatalogue:
-    """SC_USM3_1: exactly 7 tools registered with the correct v5 names."""
+    """SC_USM3_1: exactly 8 tools registered with the correct v5/v6 names."""
 
     def test_seven_tools_registered_with_v5_names(self, registered_tools: list[Any]) -> None:
         names = {t.name for t in registered_tools}

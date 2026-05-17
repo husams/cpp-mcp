@@ -22,6 +22,8 @@ EXPECTED_TOOL_NAMES: frozenset[str] = frozenset(
         "get_header_info",
         "get_preprocessor_state",
         "ingest_code",
+        "query_graphdb",
+        "describe_graph_schema",
     }
 )
 

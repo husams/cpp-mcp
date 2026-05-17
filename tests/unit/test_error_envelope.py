@@ -42,11 +42,16 @@ EXPECTED_CODES = {
     "DEPENDENCY_MISSING",
     "PARSE_ERROR",
     "INTERNAL_ERROR",
+    # v6 query-surface codes (ADR-22 / ADR-23)
+    "READ_ONLY_VIOLATION",
+    "QUERY_PARSE_ERROR",
+    "QUERY_UNSUPPORTED",
+    "QUERY_TIMEOUT",
 }
 
 
 def test_error_code_count() -> None:
-    assert len(ErrorCode) == 9
+    assert len(ErrorCode) == 13
 
 
 def test_all_expected_codes_present() -> None:

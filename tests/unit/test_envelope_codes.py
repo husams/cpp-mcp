@@ -23,6 +23,10 @@ from cpp_mcp.core.error_envelope import (
     InvalidPositionError,
     InvalidRangeError,
     PathViolationError,
+    QueryParseError,
+    QueryTimeoutError,
+    QueryUnsupportedError,
+    ReadOnlyViolationError,
     wrap_tool,
 )
 
@@ -43,6 +47,11 @@ _EXCEPTION_CODE_PAIRS: list[tuple[Exception, str]] = [
     (DBUnreachableError("neo4j down"), ErrorCode.DB_UNREACHABLE),
     (FatalParseError("zero AST nodes"), ErrorCode.PARSE_ERROR),
     (RuntimeError("unexpected"), ErrorCode.INTERNAL_ERROR),
+    # v6 query-surface codes
+    (ReadOnlyViolationError("write op detected"), ErrorCode.READ_ONLY_VIOLATION),
+    (QueryParseError("invalid json"), ErrorCode.QUERY_PARSE_ERROR),
+    (QueryUnsupportedError("verb not in subset"), ErrorCode.QUERY_UNSUPPORTED),
+    (QueryTimeoutError("timed out after 30s"), ErrorCode.QUERY_TIMEOUT),
 ]
 
 _ENVELOPE_KEYS: frozenset[str] = frozenset({"code", "message", "tool", "request_id"})

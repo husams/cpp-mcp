@@ -33,6 +33,10 @@ class ErrorCode(StrEnum):
     DEPENDENCY_MISSING = "DEPENDENCY_MISSING"
     PARSE_ERROR = "PARSE_ERROR"
     INTERNAL_ERROR = "INTERNAL_ERROR"
+    READ_ONLY_VIOLATION = "READ_ONLY_VIOLATION"
+    QUERY_PARSE_ERROR = "QUERY_PARSE_ERROR"
+    QUERY_UNSUPPORTED = "QUERY_UNSUPPORTED"
+    QUERY_TIMEOUT = "QUERY_TIMEOUT"
 
 
 # ---------------------------------------------------------------------------
@@ -81,6 +85,34 @@ class FatalParseError(Exception):
 
 class ConfigError(Exception):
     """Raised at startup when required configuration is missing or invalid."""
+
+
+class ReadOnlyViolationError(Exception):
+    """Raised when a query contains write operations against a read-only surface.
+
+    Maps to ``ErrorCode.READ_ONLY_VIOLATION`` (ADR-22 / ADR-23).
+    """
+
+
+class QueryParseError(Exception):
+    """Raised when a query cannot be parsed (invalid JSON shape or Cypher syntax).
+
+    Maps to ``ErrorCode.QUERY_PARSE_ERROR``.
+    """
+
+
+class QueryUnsupportedError(Exception):
+    """Raised when a query verb or construct is not in the supported subset.
+
+    Maps to ``ErrorCode.QUERY_UNSUPPORTED`` (ADR-23 IndraDB subset / ADR-22 allowlist).
+    """
+
+
+class QueryTimeoutError(Exception):
+    """Raised when a query execution exceeds the configured timeout.
+
+    Maps to ``ErrorCode.QUERY_TIMEOUT``.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -154,6 +186,11 @@ _EXC_TO_CODE: list[tuple[type[BaseException], ErrorCode]] = [
     # Built-in FileNotFoundError catches both built-in and post-validation paths.
     (FileNotFoundError, ErrorCode.FILE_NOT_FOUND),
     (FileNotFoundError_, ErrorCode.FILE_NOT_FOUND),
+    # Query-surface codes (v6 / ADR-22 / ADR-23).
+    (ReadOnlyViolationError, ErrorCode.READ_ONLY_VIOLATION),
+    (QueryParseError, ErrorCode.QUERY_PARSE_ERROR),
+    (QueryUnsupportedError, ErrorCode.QUERY_UNSUPPORTED),
+    (QueryTimeoutError, ErrorCode.QUERY_TIMEOUT),
 ]
 
 

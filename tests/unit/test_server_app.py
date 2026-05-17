@@ -28,6 +28,8 @@ EXPECTED_TOOL_NAMES: list[str] = [
     "get_header_info",
     "get_preprocessor_state",
     "ingest_code",
+    "query_graphdb",
+    "describe_graph_schema",
 ]
 
 VALID_ERROR_CODES = {
@@ -40,6 +42,11 @@ VALID_ERROR_CODES = {
     "DEPENDENCY_MISSING",
     "PARSE_ERROR",
     "INTERNAL_ERROR",
+    # v6 query-surface codes (ADR-22 / ADR-23)
+    "READ_ONLY_VIOLATION",
+    "QUERY_PARSE_ERROR",
+    "QUERY_UNSUPPORTED",
+    "QUERY_TIMEOUT",
 }
 
 
@@ -63,11 +70,11 @@ def registered_tools(mcp_server):
 
 
 class TestToolCatalogue:
-    """All 7 tools must be registered via @mcp.tool."""
+    """All 9 tools must be registered via @mcp.tool (7 base + 2 v6 additions)."""
 
-    def test_tool_count_is_seven(self, registered_tools):
+    def test_tool_count_is_nine(self, registered_tools):
         names = [t.name for t in registered_tools]
-        assert len(names) == 7, f"Expected 7 tools, found {len(names)}: {names}"
+        assert len(names) == 9, f"Expected 9 tools, found {len(names)}: {names}"
 
     @pytest.mark.parametrize("tool_name", EXPECTED_TOOL_NAMES)
     def test_expected_tool_registered(self, tool_name: str, registered_tools):
@@ -123,14 +130,29 @@ class TestToolSchemas:
         )
         assert len(schema["required"]) > 0, f"{tool_name}: schema['required'] is empty"
 
-    @pytest.mark.parametrize("tool_name", EXPECTED_TOOL_NAMES)
+    # Graph query tools (v6) do not take file paths; they take db_uri.
+    _GRAPHDB_TOOLS: frozenset[str] = frozenset({"query_graphdb", "describe_graph_schema"})
+
+    @pytest.mark.parametrize(
+        "tool_name",
+        [n for n in EXPECTED_TOOL_NAMES if n not in {"query_graphdb", "describe_graph_schema"}],
+    )
     def test_schema_file_path_in_required(self, tool_name: str, registered_tools):
-        """file_path (or file_path_or_dir for graphdb) must be required."""
+        """file_path (or file_path_or_dir for graphdb) must be required for C++ tools."""
         tool = next(t for t in registered_tools if t.name == tool_name)
         required = tool.parameters.get("required", [])
         has_path_param = "file_path" in required or "file_path_or_dir" in required
         assert has_path_param, (
             f"{tool_name}: neither 'file_path' nor 'file_path_or_dir' in required={required}"
+        )
+
+    @pytest.mark.parametrize("tool_name", ["query_graphdb", "describe_graph_schema"])
+    def test_schema_db_uri_in_required_for_graph_tools(self, tool_name: str, registered_tools):
+        """Graph query tools (v6) require db_uri instead of file_path."""
+        tool = next(t for t in registered_tools if t.name == tool_name)
+        required = tool.parameters.get("required", [])
+        assert "db_uri" in required, (
+            f"{tool_name}: 'db_uri' not in required={required}"
         )
 
     @pytest.mark.parametrize("tool_name", EXPECTED_TOOL_NAMES)

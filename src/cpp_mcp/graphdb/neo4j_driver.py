@@ -48,7 +48,7 @@ class Neo4jDriver:
         """
         try:
             # Lazy import — only required when graphdb extra is installed.
-            import neo4j  # type: ignore[import-not-found]
+            import neo4j
         except ImportError as exc:
             raise DependencyMissingError(
                 "neo4j Python driver is not installed. "

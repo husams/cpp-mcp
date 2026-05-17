@@ -77,6 +77,7 @@ from cpp_mcp.graphdb.schema import (
     NODE_TYPE_ALIAS,
     NODE_VARIABLE,
 )
+from cpp_mcp.graphdb.schema_version import SCHEMA_VERSION
 
 logger = logging.getLogger(__name__)
 
@@ -203,7 +204,11 @@ def _walk_cursor(
                         NodeRecord(
                             label=NODE_FILE,
                             usr=inc_usr,
-                            props={"path": inc_path, "spelling": inc_path},
+                            props={
+                                "path": inc_path,
+                                "spelling": inc_path,
+                                "schema_version": SCHEMA_VERSION,
+                            },
                         )
                     )
                 edges.append(
@@ -444,7 +449,11 @@ def extract_nodes_and_edges(
         NodeRecord(
             label=NODE_FILE,
             usr=f_usr,
-            props={"path": str(file_path), "spelling": file_path.name},
+            props={
+                "path": str(file_path),
+                "spelling": file_path.name,
+                "schema_version": SCHEMA_VERSION,
+            },
         )
     ]
     edges: list[EdgeRecord] = []

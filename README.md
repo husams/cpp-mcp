@@ -4,7 +4,7 @@ A local Python MCP (Model Context Protocol) server that wraps `libclang` to expo
 
 **Transport layer:** cpp-mcp uses [FastMCP](https://github.com/jlowin/fastmcp) (`~=3.1.0`) as its MCP transport layer. FastMCP provides production-quality stdio and HTTP/SSE transports, `@mcp.tool` decorator registration, auto-generated JSON schemas from type hints, `lifespan` context management for the libclang session, and `Depends`-based dependency injection. See [`.claude/handoff/v2/runbook.md`](.claude/handoff/v2/runbook.md) for startup instructions, upgrade-check procedure, and install-footprint audit.
 
-**618 tests pass** (unit + BDD). Python 3.11+. Tested on macOS and Linux.
+**642+ tests pass** (unit + BDD). Python 3.11+. Tested on macOS and Linux.
 
 ---
 
@@ -89,6 +89,7 @@ export CPP_MCP_ALLOWED_ROOTS="/path/to/repo-a:/path/to/repo-b"
 | `CPP_MCP_AST_MAX_BYTES` | no | `1048576` | Byte ceiling (1 MiB) for serialized AST responses. |
 | `CPP_MCP_LIBCLANG_PATH` | no | (auto-detected) | Absolute path to `libclang.so`/`libclang.dylib`. |
 | `CPP_MCP_LOG_LEVEL` | no | `INFO` | Python logging level. |
+| `CPP_MCP_QUERY_TIMEOUT_SECONDS` | no | `30` | Per-query timeout in seconds for `query_graphdb` / `describe_graph_schema`, clamped to [1, 120]. |
 
 ---
 
@@ -139,7 +140,9 @@ Add to `~/.claude/mcp.json`:
 
 ---
 
-## Tools (7 total — all read-only)
+## Tools (9 total — all read-only)
+
+### Source analysis tools (libclang)
 
 | Tool | What it returns |
 |---|---|
@@ -149,9 +152,16 @@ Add to `~/.claude/mcp.json`:
 | `get_ast` | AST subtree with optional `depth`, `start_line`/`end_line`, and `format` (`json` or `graph`) |
 | `get_header_info` | Include graph + exported symbols + `missing_includes` + `orphaned_includes` |
 | `get_preprocessor_state` | Active macros (including transitive) + evaluated `#ifdef`/`#ifndef` conditionals |
-| `ingest_code` | Export symbol graph to Neo4j or IndraDB (requires `--extra graphdb`) |
+| `ingest_code` | Export symbol graph to Neo4j or IndraDB (requires `--extra graphdb`). Stamps `schema_version` on `File` nodes (v0.4.0+). |
 
-Every successful response includes `flags_source` (`"compilation_db"` or `"default"`), `cache_hit` (bool), and `request_id` (UUID4).
+### Graph query tools (v0.4.0+, additive)
+
+| Tool | What it returns |
+|---|---|
+| `query_graphdb` | Execute a read-only query against a Neo4j or IndraDB graph; returns `{rows, stats}` (see [Query surface](#query-surface) below). |
+| `describe_graph_schema` | Discover live node/edge types, counts, and sampled property keys; returns `schema_version` and mismatch notes. |
+
+Every successful response includes `request_id` (UUID4 hex, 32 chars). Source-analysis tools additionally return `flags_source` and `cache_hit`.
 
 Errors always use a structured envelope:
 
@@ -159,7 +169,132 @@ Errors always use a structured envelope:
 { "code": "PATH_VIOLATION", "message": "...", "tool": "get_definition", "request_id": "..." }
 ```
 
-Valid codes: `FILE_NOT_FOUND`, `INVALID_POSITION`, `INVALID_RANGE`, `INVALID_ARGUMENT`, `PATH_VIOLATION`, `DEPENDENCY_MISSING`, `DB_UNREACHABLE`, `PARSE_ERROR`, `INTERNAL_ERROR`.
+Valid codes: `FILE_NOT_FOUND`, `INVALID_POSITION`, `INVALID_RANGE`, `INVALID_ARGUMENT`, `PATH_VIOLATION`, `DEPENDENCY_MISSING`, `DB_UNREACHABLE`, `PARSE_ERROR`, `INTERNAL_ERROR`, `READ_ONLY_VIOLATION`, `QUERY_PARSE_ERROR`, `QUERY_UNSUPPORTED`, `QUERY_TIMEOUT`.
+
+---
+
+## Query surface
+
+v0.4.0 adds two read-only graph query tools. Both require a running Neo4j or IndraDB instance populated by `ingest_code`. No graph mutations are ever performed — `READ_ONLY_VIOLATION` is raised if a mutation is detected.
+
+### `describe_graph_schema`
+
+Call this first to learn the node/edge types and property keys in the graph before writing a query.
+
+```json
+{
+  "tool": "describe_graph_schema",
+  "arguments": { "db_uri": "bolt://localhost:7687", "sample_size": 50 }
+}
+```
+
+Returns:
+
+```json
+{
+  "schema_version": "v1",
+  "node_types": [
+    { "label": "Function", "count": 21, "property_keys": ["name", "usr", "spelling"] },
+    { "label": "File",     "count": 1,  "property_keys": ["path", "spelling", "schema_version"] }
+  ],
+  "edge_types": [
+    { "type": "DEFINES",     "count": 98 },
+    { "type": "REFERENCES",  "count": 82 }
+  ],
+  "totals": { "vertices": 99, "edges": 180 },
+  "notes": [
+    "Property keys are inferred from a sample and may be incomplete.",
+    "Counts are live as of this call."
+  ],
+  "request_id": "..."
+}
+```
+
+The `notes` array may also contain a schema-version mismatch warning if the graph was ingested
+under an older `ingest_code` version. Re-run `ingest_code` to update the stamp.
+
+### `query_graphdb`
+
+#### Neo4j — Cypher (read-only enforced)
+
+Send any read-only Cypher query. The server runs `EXPLAIN <query>` first and rejects the query
+before execution if the plan tree contains any write operator (`CREATE`, `MERGE`, `DELETE`,
+`SET`, `REMOVE`, `FOREACH`, `LOAD CSV`) or any procedure not in the read-only allowlist
+(`db.labels`, `db.relationshipTypes`, `db.propertyKeys`, `db.schema.*`). See ADR-22 for the
+full algorithm. Operators are matched by prefix; the check is fail-closed (unknown operators
+default to reject unless clearly read-only).
+
+```json
+{
+  "tool": "query_graphdb",
+  "arguments": {
+    "db_uri": "bolt://localhost:7687",
+    "query": "MATCH (f:Function)-[:CALLS]->(g:Function) RETURN f.name AS caller, g.name AS callee LIMIT 10",
+    "row_limit": 50
+  }
+}
+```
+
+Returns:
+
+```json
+{
+  "rows": [
+    { "caller": "vformat", "callee": "fmt_detail::do_write" }
+  ],
+  "stats": { "ms": 4, "rows_returned": 1, "truncated": false },
+  "backend": "neo4j",
+  "request_id": "..."
+}
+```
+
+#### IndraDB — JSON query subset
+
+IndraDB has no native text query language. Use the 7-verb JSON shape defined in ADR-23.
+The `query` parameter must be a JSON **string** encoding one of the following objects:
+
+| verb | required `args` | Returns |
+|---|---|---|
+| `all_vertices` | `{}` | All vertex records |
+| `all_edges` | `{}` | All edge records |
+| `vertex_with_type` | `{"t": "TypeName"}` | Vertices matching type `t` |
+| `edge_with_type` | `{"t": "TypeName"}` | Edges matching type `t` |
+| `vertex_with_property_equal` | `{"name": "prop", "value": <scalar>}` | Vertices where property equals value |
+| `edge_with_property_equal` | `{"name": "prop", "value": <scalar>}` | Edges where property equals value |
+| `pipe` | `{"vertex_id": "<uuid>", "direction": "outbound"\|"inbound", "t": "EdgeType?"}` | Neighboring vertices one hop away |
+
+Type names (`t`) must match `^[A-Za-z_][A-Za-z0-9_]*$`. `vertex_id` must be a valid UUID.
+Sending a Cypher string to an IndraDB URI returns `QUERY_PARSE_ERROR` (not a translation attempt).
+
+```json
+{
+  "tool": "query_graphdb",
+  "arguments": {
+    "db_uri": "indradb://localhost:27615",
+    "query": "{\"query\": \"vertex_with_type\", \"args\": {\"t\": \"Function\"}}",
+    "row_limit": 100
+  }
+}
+```
+
+#### End-to-end agent example
+
+A typical CodexGraph-style retrieval loop using both tools:
+
+```
+1. Agent calls describe_graph_schema to learn vertex/edge types.
+2. Agent inspects schema: sees node types Function, File, Variable; edge types DEFINES, REFERENCES.
+3. Agent calls query_graphdb with Cypher (Neo4j) or JSON verb (IndraDB) to answer:
+     "Which functions call vformat?"
+   → MATCH (caller:Function)-[:CALLS]->(callee:Function {name: "vformat"}) RETURN caller.name
+4. Agent receives rows and reasons over the result.
+5. Agent calls query_graphdb again with a follow-up:
+     pipe from a specific vertex UUID outbound to see what it references.
+6. Agent synthesizes the final answer with concrete file/line context from get_definition.
+```
+
+Row results are capped at `row_limit` (default 200, max 500). When `stats.truncated` is `true`,
+the agent should narrow the query or increase `row_limit` up to the cap.
 
 ---
 
@@ -254,7 +389,7 @@ INDRADB_AUTOSTART=1 uv run pytest -m "integration and indradb" tests/integration
 uv run pytest -q
 ```
 
-Expected: 618 passed, 6 skipped (env-gated: `INDRADB_TEST_URI`, `NEO4J_TEST_URI`, `COGNEE_BASE_URL` unset).
+Expected: 642+ passed, 6 skipped (env-gated: `INDRADB_TEST_URI`, `NEO4J_TEST_URI`, `COGNEE_BASE_URL` unset).
 
 Full pre-release verification:
 

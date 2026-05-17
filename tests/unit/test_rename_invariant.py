@@ -107,10 +107,13 @@ class TestNoCppPrefixInRegistry:
             f"These registered tool names contain 'cpp_' (rename regression): {violations}"
         )
 
-    def test_exactly_seven_tools_registered(self, registered_tool_names: list[str]) -> None:
-        """EC-2: Registry exposes exactly 7 tools (no phantom additions or losses)."""
+    def test_exactly_nine_tools_registered(self, registered_tool_names: list[str]) -> None:
+        """EC-2: Registry exposes exactly 9 tools.
+
+        v5 base 7 + v6 query_graphdb + describe_graph_schema.
+        """
         count = len(registered_tool_names)
-        assert count == 7, f"Expected 7 registered tools, got {count}: {registered_tool_names}"
+        assert count == 9, f"Expected 9 registered tools, got {count}: {registered_tool_names}"
 
     @pytest.mark.parametrize("new_name", NEW_NAMES)
     def test_new_name_present_in_registry(

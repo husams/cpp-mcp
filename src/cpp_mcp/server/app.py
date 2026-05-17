@@ -58,7 +58,7 @@ async def app_lifespan(server: FastMCP) -> AsyncIterator[AppLifespanContext]:
 
 
 def build_server() -> FastMCP:
-    """Construct and return a FastMCP instance with all 7 tools registered.
+    """Construct and return a FastMCP instance with all 9 tools registered.
 
     Importing the tool modules inside this function causes the @mcp.tool
     decorator side-effects to fire against the instance assigned to
@@ -77,6 +77,7 @@ def build_server() -> FastMCP:
     # Import tool modules to trigger @mcp.tool registration.
     # Each module's _register(mcp) function wires the tool against this instance.
     from cpp_mcp.tools import (
+        describe_graph_schema,
         get_ast,
         get_definition,
         get_header_info,
@@ -84,6 +85,7 @@ def build_server() -> FastMCP:
         get_references,
         get_type_info,
         ingest_code,
+        query_graphdb,
     )
 
     get_definition._register(mcp)
@@ -93,6 +95,8 @@ def build_server() -> FastMCP:
     get_header_info._register(mcp)
     get_preprocessor_state._register(mcp)
     ingest_code._register(mcp)
+    query_graphdb._register(mcp)
+    describe_graph_schema._register(mcp)
 
     @mcp.custom_route("/health", methods=["GET"])
     async def health(_: Request) -> PlainTextResponse:
